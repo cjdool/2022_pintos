@@ -26,7 +26,7 @@ static struct list ready_list;
 
 /* List of processes in THREAD_BLOCKED state, that is, processes
    that are blocked for IO waiting or sleep command*/
-static struct list blocked_list;
+static struct list sleep_list;
 
 /* List of all processes.  Processes are added to this list
    when they are first scheduled and removed when they exit. */
@@ -53,7 +53,7 @@ struct kernel_thread_frame
 static long long idle_ticks;    /* # of timer ticks spent idle. */
 static long long kernel_ticks;  /* # of timer ticks in kernel threads. */
 static long long user_ticks;    /* # of timer ticks in user programs. */
-int64_t global_ticks; /* Global tick which is the minimum value of local tick of threads */
+static int64_t global_ticks; /* Global tick which is the minimum value of local tick of threads */
 
 /* Scheduling. */
 #define TIME_SLICE 4            /* # of timer ticks to give each thread. */
@@ -98,8 +98,8 @@ thread_init (void)
   lock_init (&tid_lock);
   list_init (&ready_list);
   list_init (&all_list);
-  list_init (&blocked_list);
-  global_ticks = 0;
+  list_init (&sleep_list);
+  global_ticks = INT64_MAX;
 
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
@@ -133,7 +133,6 @@ thread_tick (void)
   struct thread *t = thread_current ();
 
   /* Update statistics. */
-  global_ticks++
   if (t == idle_thread)
     idle_ticks++;
 #ifdef USERPROG
@@ -305,21 +304,42 @@ thread_exit (void)
   NOT_REACHED ();
 }
 
+void save_global_ticks (int64_t ticks)
+{
+    global_ticks = (global_ticks > ticks) ? ticks : global_ticks;
+}
+
+int64_t get_global_ticks (void)
+{
+    return global_ticks;
+}
+
 /* Wakes up the CPU. The thread is put to ready queue. */
 void
-thread_wake (struct thread *t) 
+thread_wake (int64_t ticks) 
 {
+  global_ticks = INT64_MAX;
+  struct list_elem *e;
   enum intr_level old_level;
 
-  ASSERT (is_thread (t));
-
-  old_level = intr_disable ();
-  ASSERT (t->status == THREAD_BLOCKED);
-  list_remove(&t->elem);
-  list_push_back (&ready_list, &t->elem);
-  t->status = THREAD_READY;
-  global_ticks = list_min(&blocked_list);
-  intr_set_level (old_level);
+  for (e = list_begin(&sleep_list); e != list_end(&sleep_list); e = list_next(e))
+  {
+      struct thread *t = list_entry(e, struct thread, elem);
+      if (ticks >= t->wakeup_tick)
+      {
+          ASSERT (is_thread (t));
+          old_level = intr_disable ();
+          ASSERT (t->status == THREAD_BLOCKED);
+          list_remove(&t->elem);
+          list_push_back (&ready_list, &t->elem);
+          t->status = THREAD_READY;
+          intr_set_level (old_level);
+      }
+      else
+      {
+          save_global_ticks(ticks);
+      }
+  }
 }
 
 /* Sleeps the CPU. The current thread is put to sleep and 
@@ -336,11 +356,10 @@ thread_sleep (int64_t ticks)
     if (cur != idle_thread)
     {
         list_remove(&cur->elem);
-        list_push_back (&blocked_list, &cur->elem);
+        list_push_back (&sleep_list, &cur->elem);
         cur->status = THREAD_BLOCKED;
         cur->wakeup_tick = ticks;
-        if (ticks <= global_ticks)
-            global_ticks = ticks;
+        save_global_ticks(ticks);
     }
     schedule ();
     intr_set_level (old_level);

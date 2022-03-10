@@ -173,15 +173,7 @@ timer_interrupt (struct intr_frame *args UNUSED)
   struct list_elem *e;
   ticks++;
   thread_tick ();
-
-  for (e = list_begin (&blocked_list); e != list_end (&blocked_list); e = list_next (e))
-  {
-     struct thread *t = list_entry (e, struct thread, elem);
-     if (ticks > t->wakeup_tick)
-     {
-         thread_wake(t);
-     }
-  }
+  thread_wake (ticks);
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer
