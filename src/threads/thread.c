@@ -319,25 +319,20 @@ void
 thread_wake (int64_t ticks) 
 {
   global_ticks = INT64_MAX;
-  struct list_elem *e;
-  enum intr_level old_level;
+  struct list_elem *e = list_begin(&sleep_list);
 
-  for (e = list_begin(&sleep_list); e != list_end(&sleep_list); e = list_next(e))
+  while (e != list_end(&sleep_list))
   {
       struct thread *t = list_entry(e, struct thread, elem);
       if (ticks >= t->wakeup_tick)
       {
-          ASSERT (is_thread (t));
-          old_level = intr_disable ();
-          ASSERT (t->status == THREAD_BLOCKED);
-          list_remove(&t->elem);
-          list_push_back (&ready_list, &t->elem);
-          t->status = THREAD_READY;
-          intr_set_level (old_level);
+          e = list_remove(&t->elem);
+          thread_unblock(t);
       }
       else
       {
-          save_global_ticks(ticks);
+          e = list_next(e);
+          save_global_ticks(t->wakeup_tick);
       }
   }
 }
@@ -350,19 +345,15 @@ thread_sleep (int64_t ticks)
     struct thread *cur = thread_current ();
     enum intr_level old_level;
 
-    ASSERT (!intr_context ());
-
-    old_level = intr_disable ();
     if (cur != idle_thread)
     {
-        list_remove(&cur->elem);
-        list_push_back (&sleep_list, &cur->elem);
-        cur->status = THREAD_BLOCKED;
+        old_level = intr_disable();
         cur->wakeup_tick = ticks;
         save_global_ticks(ticks);
+        list_push_back (&sleep_list, &cur->elem);
+        thread_block();
+        intr_set_level(old_level);
     }
-    schedule ();
-    intr_set_level (old_level);
 }
 
 /* Yields the CPU.  The current thread is not put to sleep and
