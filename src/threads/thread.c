@@ -420,6 +420,7 @@ void
 thread_donation_reorder (void)
 {
   struct thread *cur = thread_current();
+  cur->priority = cur->ori_priority;
   if (!list_empty(&cur->donation))
   {
       list_sort(&cur->donation, cmp_donation, NULL);
@@ -428,10 +429,6 @@ thread_donation_reorder (void)
       {
           cur->priority = t->priority;
       }
-  }
-  else // empty case
-  {
-      cur->priority = cur->ori_priority;
   }
 }
 
