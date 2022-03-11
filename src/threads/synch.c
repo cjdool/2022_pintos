@@ -163,11 +163,11 @@ sema_test_helper (void *sema_)
 }
 
 /* Function that Compares priority of two thread donation list*/
-/*bool cmp_donation (struct list_elem *first, struct list_elem *second, void *aux UNUSED)
+bool cmp_donation (const struct list_elem *first, const struct list_elem *second, void *aux UNUSED)
 {
     return list_entry(first, struct thread, donation_elem)->priority >
            list_entry(second, struct thread, donation_elem)->priority;
-}*/
+}
 
 /* Initializes LOCK.  A lock can be held by at most a single
    thread at any given time.  Our locks are not "recursive", that
@@ -194,7 +194,7 @@ lock_init (struct lock *lock)
 }
 
 /* Donate priority based on waiting locks */
-/*void
+void
 donate_priority (void)
 {
   int itr;
@@ -204,11 +204,12 @@ donate_priority (void)
   {
       if(itr_thread->wait_on_lock == NULL)
           break;
+
       struct thread *holder = itr_thread->wait_on_lock->holder;
       holder->priority = itr_thread->priority;
       itr_thread = holder;
   }
-}*/
+}
 
 /* Acquires LOCK, sleeping until it becomes available if
    necessary.  The lock must not already be held by the current
@@ -226,14 +227,14 @@ lock_acquire (struct lock *lock)
   ASSERT (!lock_held_by_current_thread (lock));
 
   struct thread *cur = thread_current ();
-  /*if (lock->holder != NULL)
+  if (lock->holder != NULL)
   {
       cur->wait_on_lock = lock;
       list_insert_ordered(&lock->holder->donation, &cur->donation_elem, cmp_donation, NULL);
       donate_priority();
-  }*/
+  }
   sema_down (&lock->semaphore);
-  //cur->wait_on_lock = NULL;
+  cur->wait_on_lock = NULL;
   lock->holder = cur;
 }
 
@@ -258,7 +259,7 @@ lock_try_acquire (struct lock *lock)
 }
 
 /*Remove donation elements if lock is released. */
-/*void
+void
 remove_donation (struct lock *lock)
 {
   struct list_elem *e;
@@ -272,7 +273,7 @@ remove_donation (struct lock *lock)
           list_remove(&t->donation_elem);
       }
   }
-}*/ 
+} 
 
 /* Releases LOCK, which must be owned by the current thread.
 
@@ -285,8 +286,8 @@ lock_release (struct lock *lock)
   ASSERT (lock != NULL);
   ASSERT (lock_held_by_current_thread (lock));
 
-  //remove_donation(lock);
-  //thread_donation_reorder();
+  remove_donation(lock);
+  thread_donation_reorder();
 
   lock->holder = NULL;
   sema_up (&lock->semaphore);

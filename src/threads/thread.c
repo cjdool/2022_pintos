@@ -416,7 +416,7 @@ thread_foreach (thread_action_func *func, void *aux)
 }
 
 /* Priority donation list reordering caused by donation. */
-/*void
+void
 thread_donation_reorder (void)
 {
   struct thread *cur = thread_current();
@@ -430,14 +430,14 @@ thread_donation_reorder (void)
           cur->priority = t->priority;
       }
   }
-}*/
+}
 
 /* Sets the current thread's priority to NEW_PRIORITY. */
 void
 thread_set_priority (int new_priority) 
 {
   thread_current ()->priority = new_priority;
-  //thread_donation_reorder();
+  thread_donation_reorder();
   thread_order_test();
 }
 
@@ -564,10 +564,10 @@ init_thread (struct thread *t, const char *name, int priority)
   t->status = THREAD_BLOCKED;
   strlcpy (t->name, name, sizeof t->name);
   t->stack = (uint8_t *) t + PGSIZE;
-  //t->ori_priority = priority;
+  t->ori_priority = priority;
   t->priority = priority;
-  //t->wait_on_lock = NULL;
-  //list_init(&t->donation);
+  t->wait_on_lock = NULL;
+  list_init(&t->donation);
   t->magic = THREAD_MAGIC;
   t->wakeup_tick = 0;
 
