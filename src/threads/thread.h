@@ -114,6 +114,7 @@ extern bool thread_mlfqs;
 extern bool thread_report_latency;
 
 bool cmp_priority (struct list_elem *first, struct list_elem *second, void *aux UNUSED);
+void thread_order_test (void);
 
 void thread_init (void);
 void thread_start (void);
