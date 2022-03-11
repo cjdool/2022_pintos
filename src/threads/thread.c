@@ -441,7 +441,6 @@ thread_set_priority (int new_priority)
 {
   thread_current ()->priority = new_priority;
   thread_donation_reorder();
-  list_sort(&ready_list, cmp_priority, NULL);
   thread_order_test();
 }
 
