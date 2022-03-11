@@ -264,15 +264,13 @@ remove_donation (struct lock *lock)
   struct list_elem *e;
   struct thread *cur = thread_current();
 
-  e = list_begin(&cur->donation);
-  while(e != list_end (&cur->donation))
+  for (e = list_begin(&cur->donation); e != list_end(&cur->donation); e = list_next(e))
   {
       struct thread *t = list_entry (e, struct thread, donation_elem);
       if (t->wait_on_lock == lock)
       {
           list_remove(&t->donation_elem);
       }
-      e = list_next(e);
   }
 } 
 
