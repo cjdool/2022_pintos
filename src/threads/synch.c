@@ -316,7 +316,7 @@ bool cmp_sema (struct list_elem *first, struct list_elem *second, void *aux UNUS
     struct semaphore_elem *first_sema = list_entry (first, struct semaphore_elem, elem);
     struct semaphore_elem *second_sema = list_entry (second, struct semaphore_elem, elem);
 
-    struct list *first_sema_waiters = &(first_seam->semaphore.waiters);
+    struct list *first_sema_waiters = &(first_sema->semaphore.waiters);
     struct list *second_sema_waiters = &(second_sema->semaphore.waiters);
 
     return list_entry(list_begin(first_sema_waiters), struct thread, elem)->priority >
