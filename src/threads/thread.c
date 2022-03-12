@@ -92,7 +92,7 @@ void thread_order_test (void)
     if (!list_empty(&ready_list))
     {
         if(thread_current()->priority < 
-           list_entry(list_front(&ready_list), struct thread, elem)->priority)
+           list_entry(list_begin(&ready_list), struct thread, elem)->priority)
         {
             thread_yield();
         }
@@ -436,7 +436,7 @@ thread_donation_reorder (void)
 void
 thread_set_priority (int new_priority) 
 {
-  thread_current ()->priority = new_priority;
+  thread_current()->ori_priority = new_priority;
   thread_donation_reorder();
   thread_order_test();
 }
