@@ -230,7 +230,6 @@ lock_acquire (struct lock *lock)
   if (lock->holder != NULL)
   {
       cur->wait_on_lock = lock;
-      //list_insert_ordered(&lock->holder->donation, &cur->donation_elem, cmp_donation, NULL);
       list_push_back(&lock->holder->donation, &cur->donation_elem);
       donate_priority();
   }
@@ -271,7 +270,7 @@ remove_donation (struct lock *lock)
       struct thread *t = list_entry (e, struct thread, donation_elem);
       if (t->wait_on_lock == lock)
       {
-          list_remove(e);
+          e = list_remove(e);
       }
       else
       {
