@@ -77,6 +77,7 @@ static void *alloc_frame (struct thread *, size_t size);
 static void schedule (void);
 void thread_schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
+bool cmp_priority(const struct list_elem *a, const struct list_elem *b, void* aux);
 
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
@@ -209,6 +210,15 @@ thread_create (const char *name, int priority,
   /* Add to run queue. */
   thread_unblock (t);
 
+  /* compare the priorities of the currently running thread 
+	and the newly inserted one. Yield the CPU if the newly 
+	arriving thread has higher priority*/
+
+  struct thread *cur = thread_current();
+  if(priority > cur->priority){
+	thread_yield();	
+  }
+
   return tid;
 }
 
@@ -245,7 +255,8 @@ thread_unblock (struct thread *t)
 
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
-  list_push_back (&ready_list, &t->elem);
+//  list_push_back (&ready_list, &t->elem);
+  list_insert_ordered(&ready_list, &t->elem,&cmp_priority,NULL);
   t->status = THREAD_READY;
   intr_set_level (old_level);
 }
@@ -316,7 +327,8 @@ thread_yield (void)
 
   old_level = intr_disable ();
   if (cur != idle_thread) 
-    list_push_back (&ready_list, &cur->elem);
+    //list_push_back (&ready_list, &cur->elem);
+	list_insert_ordered(&ready_list, &cur->elem, &cmp_priority, NULL);
   cur->status = THREAD_READY;
   schedule ();
   intr_set_level (old_level);
@@ -367,8 +379,8 @@ thread_wakeup(int64_t ticks)
 
 	ASSERT(intr_get_level() == INTR_OFF);
 
-	for( e = list_begin(&sleep_list); e != list_end(&sleep_list);)
-		{
+	if( !list_empty(&sleep_list)){
+		for( e = list_begin(&sleep_list); e != list_end(&sleep_list);){
 			t = list_entry(e, struct thread, elem);						
 			if(t->ticks_wakeup <= ticks){
 				e =	list_remove(&t->elem);
@@ -379,6 +391,7 @@ thread_wakeup(int64_t ticks)
 					minticks = t->ticks_wakeup;
 			}
 		}
+	}
 	next_tick_to_wakeup=minticks;
 }
 
@@ -399,11 +412,34 @@ thread_foreach (thread_action_func *func, void *aux)
     }
 }
 
+bool 
+cmp_priority(const struct list_elem *a_, const struct list_elem *b_, void* aux UNUSED)
+{
+	const struct thread *a = list_entry(a_, struct thread, elem);
+	const struct thread *b = list_entry(b_, struct thread, elem);
+
+	return a->priority > b->priority;
+
+}
 /* Sets the current thread's priority to NEW_PRIORITY. */
 void
 thread_set_priority (int new_priority) 
 {
-  thread_current ()->priority = new_priority;
+  struct thread *t = thread_current();
+  t->old_priority = new_priority;
+  int first_priority =list_entry(list_begin(&t->donations),struct thread, d_elem)->priority;
+  if(  first_priority > t->old_priority){
+	  t->priority = first_priority;
+  }else{
+	  t->priority = t->old_priority;
+  }
+  struct list_elem *e;
+  for(e=list_begin(&ready_list); e != list_end(&ready_list); e = list_next(e)){
+	struct thread *t = list_entry(e, struct thread, elem);
+	if( t-> priority > new_priority ){
+		thread_yield();
+	}
+  }
 }
 
 /* Returns the current thread's priority. */
@@ -531,6 +567,9 @@ init_thread (struct thread *t, const char *name, int priority)
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
   t->magic = THREAD_MAGIC;
+  t->old_priority = priority;
+  t->wait_on_lock = NULL;
+  list_init(&t->donations);
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);

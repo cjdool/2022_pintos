@@ -101,7 +101,12 @@ struct thread
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
 
-	int64_t ticks_wakeup;					/* Ticks to wakeup thread */
+	int64_t ticks_wakeup;				/* Ticks to wakeup thread */
+	int old_priority;					/* The initial priority */
+	struct lock *wait_on_lock;			/* The lock thread waits */
+	struct list donations;				/* donation list */
+	struct list_elem d_elem;			/* donation list element */
+
   };
 
 /* If false (default), use round-robin scheduler.
@@ -147,4 +152,5 @@ void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
 
+bool cmp_priority(const struct list_elem *a, const struct list_elem *b, void* aux);
 #endif /* threads/thread.h */

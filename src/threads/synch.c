@@ -68,7 +68,7 @@ sema_down (struct semaphore *sema)
   old_level = intr_disable ();
   while (sema->value == 0) 
     {
-      list_push_back (&sema->waiters, &thread_current ()->elem);
+      list_insert_ordered (&sema->waiters, &thread_current ()->elem,&cmp_priority,NULL);
       thread_block ();
     }
   sema->value--;
@@ -196,8 +196,26 @@ lock_acquire (struct lock *lock)
   ASSERT (!intr_context ());
   ASSERT (!lock_held_by_current_thread (lock));
 
+  struct thread *t = thread_current();
+  struct thread *t_search = thread_current();
+  int depth = 0;
+
+  if( lock->holder != NULL ){
+	if(lock->holder->priority < t->priority){
+		t->wait_on_lock = lock;
+		list_insert_ordered(&t_search->wait_on_lock->holder->donations, &t->d_elem,&cmp_priority,NULL);
+		
+		for(depth=0; depth<8; depth++){
+			if( t_search->wait_on_lock == NULL) break;
+
+			t_search->priority = t->priority;
+			t_search = t_search->wait_on_lock->holder;
+		}
+	}
+  }
   sema_down (&lock->semaphore);
-  lock->holder = thread_current ();
+  t->wait_on_lock = NULL;
+  lock->holder = t ;
 }
 
 /* Tries to acquires LOCK and returns true if successful or false
@@ -231,6 +249,24 @@ lock_release (struct lock *lock)
   ASSERT (lock != NULL);
   ASSERT (lock_held_by_current_thread (lock));
 
+  struct thread *t = thread_current();
+  struct list_elem *e;
+  if(!list_empty(&t->donations)){
+	for( e = list_begin(&t->donations); e != list_end(&t->donations); ){
+		if(list_entry(e, struct thread, d_elem)->wait_on_lock == lock){
+			e = list_remove(e);
+		}else{
+			e= list_next(e);
+		}
+	}
+  }
+  int first_priority =list_entry(list_begin(&t->donations),struct thread, d_elem)->priority;
+  if(  first_priority > t->old_priority){
+	  t->priority = first_priority;
+  }else{
+	  t->priority = t->old_priority;
+  }
+ 
   lock->holder = NULL;
   sema_up (&lock->semaphore);
 }
@@ -295,7 +331,8 @@ cond_wait (struct condition *cond, struct lock *lock)
   ASSERT (lock_held_by_current_thread (lock));
   
   sema_init (&waiter.semaphore, 0);
-  list_push_back (&cond->waiters, &waiter.elem);
+ // list_push_back (&cond->waiters, &waiter.elem);
+  list_insert_ordered(&cond->waiters, &waiter.elem,&cmp_priority, NULL);
   lock_release (lock);
   sema_down (&waiter.semaphore);
   lock_acquire (lock);
