@@ -78,6 +78,7 @@ static void schedule (void);
 void thread_schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
 bool cmp_priority(const struct list_elem *a, const struct list_elem *b, void* aux);
+void thread_priority_test(void);
 
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
@@ -261,6 +262,16 @@ thread_unblock (struct thread *t)
   intr_set_level (old_level);
 }
 
+void
+thread_priority_test(void)
+{
+	struct thread *t = thread_current();
+  if(!list_empty(&ready_list)){
+	if(list_entry(list_begin(&ready_list),struct thread, elem)->priority > t->priority){
+		thread_yield();
+	}
+  }
+}
 /* Returns the name of the running thread. */
 const char *
 thread_name (void) 
@@ -427,18 +438,25 @@ thread_set_priority (int new_priority)
 {
   struct thread *t = thread_current();
   t->old_priority = new_priority;
-  int first_priority =list_entry(list_begin(&t->donations),struct thread, d_elem)->priority;
-  if(  first_priority > t->old_priority){
-	  t->priority = first_priority;
-  }else{
-	  t->priority = t->old_priority;
-  }
-  struct list_elem *e;
-  for(e=list_begin(&ready_list); e != list_end(&ready_list); e = list_next(e)){
-	struct thread *t = list_entry(e, struct thread, elem);
-	if( t-> priority > new_priority ){
-		thread_yield();
+  t->priority = new_priority;
+  if(!list_empty(&t->donations)){
+	list_sort(&t->donations, &cmp_priority_d, NULL);
+	int first_priority =list_entry(list_begin(&t->donations),struct thread, d_elem)->priority;
+	if(  first_priority > t->priority){
+		t->priority = first_priority;
 	}
+  }
+  //struct list_elem *e;
+  if(!list_empty(&ready_list)){
+//	for(e=list_begin(&ready_list); e != list_end(&ready_list); ){
+		struct thread *tn = list_entry(list_begin(&ready_list), struct thread, elem);
+		if( tn-> priority > t->priority ){
+			thread_yield();
+		}
+//		else{
+//			e = list_next(e);
+//		}
+//	}
   }
 }
 

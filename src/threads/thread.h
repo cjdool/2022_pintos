@@ -153,4 +153,5 @@ int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
 
 bool cmp_priority(const struct list_elem *a, const struct list_elem *b, void* aux);
+void thread_priority_test(void);
 #endif /* threads/thread.h */
