@@ -107,6 +107,8 @@ struct thread
 	struct list donations;				/* donation list */
 	struct list_elem d_elem;			/* donation list element */
 
+	int64_t ticks_running;				/* Ticks from creation  */
+
   };
 
 /* If false (default), use round-robin scheduler.
@@ -154,4 +156,5 @@ int thread_get_load_avg (void);
 
 bool cmp_priority(const struct list_elem *a, const struct list_elem *b, void* aux);
 void thread_priority_test(void);
+void thread_count_tick(void);
 #endif /* threads/thread.h */

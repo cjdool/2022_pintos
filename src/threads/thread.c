@@ -127,13 +127,24 @@ thread_start (void)
   sema_down (&idle_started);
 }
 
+void
+thread_count_tick(void)
+{
+	struct list_elem * e;
+	struct thread *t;
+	for(e = list_begin(&all_list); e != list_end(&all_list);e=list_next(e)){
+		t = list_entry(e, struct thread, allelem);
+		t->ticks_running++;
+	}
+
+}
+
 /* Called by the timer interrupt handler at each timer tick.
    Thus, this function runs in an external interrupt context. */
 void
 thread_tick (void) 
 {
-  struct thread *t = thread_current ();
-
+  struct thread *t = thread_current();
   /* Update statistics. */
   if (t == idle_thread)
     idle_ticks++;
@@ -312,6 +323,11 @@ thread_exit (void)
 {
   ASSERT (!intr_context ());
 
+  if( thread_report_latency ){
+	struct thread *t = thread_current();
+	  //printf("Thread %s completed in %lld ticks.\n",t->name,t->ticks_running);
+	  msg("Thread %s completed in %lld ticks.",t->name,t->ticks_running);
+  }
 #ifdef USERPROG
   process_exit ();
 #endif
@@ -588,6 +604,7 @@ init_thread (struct thread *t, const char *name, int priority)
   t->old_priority = priority;
   t->wait_on_lock = NULL;
   list_init(&t->donations);
+  t->ticks_running = 0;
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
