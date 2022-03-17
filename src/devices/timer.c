@@ -170,9 +170,22 @@ timer_print_stats (void)
 static void
 timer_interrupt (struct intr_frame *args UNUSED)
 {
-  struct list_elem *e;
   ticks++;
   thread_tick ();
+
+  if(thread_mlfqs){
+      inc_recent_cpu();
+      if (ticks % 4 == 0)
+      {
+          recalculate_priority();
+          if (ticks % TIMER_FREQ == 0)
+          {
+              recalculate_recent_cpu();
+              calculate_load_avg();
+          }
+      }
+  }
+
   thread_wake (ticks);
 }
 

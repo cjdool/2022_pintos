@@ -11,6 +11,7 @@
 #include "threads/switch.h"
 #include "threads/synch.h"
 #include "threads/vaddr.h"
+#include "threads/fixed-point.h"
 #ifdef USERPROG
 #include "userprog/process.h"
 #endif
@@ -19,6 +20,9 @@
    Used to detect stack overflow.  See the big comment at the top
    of thread.h for details. */
 #define THREAD_MAGIC 0xcd6abf4b
+
+/* Load average value for MLFQ scheduler. */
+static int load_avg;
 
 /* List of processes in THREAD_READY state, that is, processes
    that are ready to run but not actually running. */
@@ -117,6 +121,7 @@ thread_init (void)
 {
   ASSERT (intr_get_level () == INTR_OFF);
 
+  load_avg = LOAD_AVG_DEFAULT;
   lock_init (&tid_lock);
   list_init (&ready_list);
   list_init (&all_list);
@@ -436,9 +441,11 @@ thread_donation_reorder (void)
 void
 thread_set_priority (int new_priority) 
 {
-  thread_current()->ori_priority = new_priority;
-  thread_donation_reorder();
-  thread_order_test();
+  if (!thread_mlfqs){
+    thread_current()->ori_priority = new_priority;
+    thread_donation_reorder();
+    thread_order_test();
+  }
 }
 
 /* Returns the current thread's priority. */
@@ -450,35 +457,111 @@ thread_get_priority (void)
 
 /* Sets the current thread's nice value to NICE. */
 void
-thread_set_nice (int nice UNUSED) 
+thread_set_nice (int nice) 
 {
-  /* Not yet implemented. */
+  thread_current()->nice = nice;
+  calculate_priority(thread_current());
+  thread_order_test();
 }
 
 /* Returns the current thread's nice value. */
 int
 thread_get_nice (void) 
-{
-  /* Not yet implemented. */
-  return 0;
+{  
+  return thread_current()->nice;
 }
 
 /* Returns 100 times the system load average. */
 int
 thread_get_load_avg (void) 
 {
-  /* Not yet implemented. */
-  return 0;
+  return fixed_point_round_to_int(fixed_point_muln(load_avg, 100));
 }
 
 /* Returns 100 times the current thread's recent_cpu value. */
 int
 thread_get_recent_cpu (void) 
 {
-  /* Not yet implemented. */
-  return 0;
+  return fixed_point_round_to_int(fixed_point_muln(thread_current()->recent_cpu, 100));
 }
-
+
+/* Sets new priority of the thread by using recent_cpu and nice value. */
+void calculate_priority (struct thread *t)
+{
+    if (t != idle_thread)
+    {
+        t->priority = fixed_point_to_int(
+                fixed_point_addn(
+                    fixed_point_divn(t->recent_cpu, 4), 
+                    PRI_MAX - t->nice * 2)); 
+    }
+}
+
+/* Sets the thread's new recent_cpu value. */
+void calculate_recent_cpu (struct thread *t)
+{
+    if (t != idle_thread)
+    {        
+        int dload_avg = fixed_point_muln(load_avg, 2);
+        t->recent_cpu = fixed_point_addn(
+                fixed_point_mul(
+                fixed_point_div(dload_avg, fixed_point_addn(dload_avg, 1))
+                , t->recent_cpu)
+                , t->nice);
+                        
+    }
+}
+
+/* Sets the new global load_avg value. */
+void calculate_load_avg (void)
+{
+    int ready_threads = list_size(&ready_list);
+
+    if (thread_current() != idle_thread)
+    {
+        ready_threads += 1;
+    }
+    load_avg = fixed_point_add(
+            fixed_point_mul(fixed_point_div(int_to_fixed_point(59), int_to_fixed_point(60))
+                , load_avg)
+            , fixed_point_muln(fixed_point_div(int_to_fixed_point(1), int_to_fixed_point(60))
+                , ready_threads));
+}
+
+/* Increace the current thread's recent_cpu value. */
+void inc_recent_cpu (void)
+{
+    struct thread *cur = thread_current();
+    if (cur != idle_thread)
+    {
+        cur->recent_cpu = fixed_point_addn(cur->recent_cpu, 1);
+    }
+}
+
+/* Recalculate all prioriry of threads. */
+void recalculate_priority (void)
+{
+    struct list_elem *e;
+
+    for(e=list_begin(&all_list); e != list_end(&all_list); e = list_next(e))
+    {
+        struct thread *t = list_entry(e, struct thread, allelem);
+        calculate_priority(t);
+    }
+}
+
+/* Recalculate all recent_cpu value of threads */
+void recalculate_recent_cpu (void)
+{
+    struct list_elem *e;
+
+    for(e=list_begin(&all_list); e != list_end(&all_list); e = list_next(e))
+    {
+        struct thread *t = list_entry(e, struct thread, allelem);
+        calculate_recent_cpu(t);
+    }
+}
+
 /* Idle thread.  Executes when no other thread is ready to run.
 
    The idle thread is initially put on the ready list by
@@ -570,6 +653,8 @@ init_thread (struct thread *t, const char *name, int priority)
   list_init(&t->donation);
   t->magic = THREAD_MAGIC;
   t->wakeup_tick = 0;
+  t->nice = NICE_DEFAULT;
+  t->recent_cpu = RECENT_CPU_DEFAULT;
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
