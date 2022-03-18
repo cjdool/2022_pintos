@@ -37,12 +37,12 @@ int fixed_point_sub (int x, int y)
 
 int fixed_point_mul (int x, int y)
 {
-    return ((int64_t)x * y / fraction);
+    return ((int64_t)x) * y / fraction;
 }
 
 int fixed_point_div (int x, int y)
 {
-    return ((int64_t)x * fraction / y);
+    return ((int64_t)x) * fraction / y;
 }
 
 int fixed_point_addn (int x, int n)

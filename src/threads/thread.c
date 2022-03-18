@@ -121,7 +121,7 @@ thread_init (void)
 {
   ASSERT (intr_get_level () == INTR_OFF);
 
-  load_avg = LOAD_AVG_DEFAULT;
+  //load_avg = LOAD_AVG_DEFAULT;
   lock_init (&tid_lock);
   list_init (&ready_list);
   list_init (&all_list);
@@ -144,6 +144,7 @@ thread_start (void)
   struct semaphore idle_started;
   sema_init (&idle_started, 0);
   thread_create ("idle", PRI_MIN, idle, &idle_started);
+  load_avg = LOAD_AVG_DEFAULT;
 
   /* Start preemptive thread scheduling. */
   intr_enable ();
@@ -507,8 +508,7 @@ void calculate_recent_cpu (struct thread *t)
                 fixed_point_mul(
                 fixed_point_div(dload_avg, fixed_point_addn(dload_avg, 1))
                 , t->recent_cpu)
-                , t->nice);
-                        
+                , t->nice);                     
     }
 }
 
