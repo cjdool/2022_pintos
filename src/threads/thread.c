@@ -497,7 +497,7 @@ void calculate_priority (struct thread *t)
     {
         t->priority = fixed_point_to_int(
                 fixed_point_addn(
-                    fixed_point_divn(t->recent_cpu, 4), 
+                    fixed_point_divn(t->recent_cpu, -4), 
                     PRI_MAX - t->nice * 2));
         if (t->priority > PRI_MAX)
         {
