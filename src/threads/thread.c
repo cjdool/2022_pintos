@@ -121,8 +121,8 @@ thread_init (void)
 {
   ASSERT (intr_get_level () == INTR_OFF);
 
-  //load_avg = LOAD_AVG_DEFAULT;
   lock_init (&tid_lock);
+  load_avg = LOAD_AVG_DEFAULT;
   list_init (&ready_list);
   list_init (&all_list);
   list_init (&sleep_list);
@@ -144,7 +144,6 @@ thread_start (void)
   struct semaphore idle_started;
   sema_init (&idle_started, 0);
   thread_create ("idle", PRI_MIN, idle, &idle_started);
-  load_avg = LOAD_AVG_DEFAULT;
 
   /* Start preemptive thread scheduling. */
   intr_enable ();
@@ -494,7 +493,15 @@ void calculate_priority (struct thread *t)
         t->priority = fixed_point_to_int(
                 fixed_point_addn(
                     fixed_point_divn(t->recent_cpu, 4), 
-                    PRI_MAX - t->nice * 2)); 
+                    PRI_MAX - t->nice * 2));
+        if (t->priority > PRI_MAX)
+        {
+            t->priority = PRI_MAX;
+        }
+        else if (t->priority < PRI_MIN)
+        {
+            t->priority = PRI_MIN;
+        }
     }
 }
 
@@ -541,25 +548,13 @@ void inc_recent_cpu (void)
 /* Recalculate all prioriry of threads. */
 void recalculate_priority (void)
 {
-    struct list_elem *e;
-
-    for(e=list_begin(&all_list); e != list_end(&all_list); e = list_next(e))
-    {
-        struct thread *t = list_entry(e, struct thread, allelem);
-        calculate_priority(t);
-    }
+    thread_foreach(calculate_priority, NULL);
 }
 
 /* Recalculate all recent_cpu value of threads */
 void recalculate_recent_cpu (void)
 {
-    struct list_elem *e;
-
-    for(e=list_begin(&all_list); e != list_end(&all_list); e = list_next(e))
-    {
-        struct thread *t = list_entry(e, struct thread, allelem);
-        calculate_recent_cpu(t);
-    }
+    thread_foreach(calculate_recent_cpu, NULL);
 }
 
 /* Idle thread.  Executes when no other thread is ready to run.
