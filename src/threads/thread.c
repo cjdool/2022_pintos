@@ -528,6 +528,7 @@ void calculate_load_avg (void)
     {
         ready_threads += 1;
     }
+    //printf("ready threads: %d\n", ready_threads);
     load_avg = fixed_point_add(
             fixed_point_mul(fixed_point_div(int_to_fixed_point(59), int_to_fixed_point(60))
                 , load_avg)
@@ -549,6 +550,7 @@ void inc_recent_cpu (void)
 void recalculate_priority (void)
 {
     thread_foreach(calculate_priority, NULL);
+    //list_sort(&ready_list, cmp_priority, NULL);
 }
 
 /* Recalculate all recent_cpu value of threads */
