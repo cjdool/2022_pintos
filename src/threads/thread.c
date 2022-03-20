@@ -533,7 +533,6 @@ void calculate_load_avg (void)
     {
         ready_threads += 1;
     }
-    //printf("ready threads: %d\n", ready_threads);
     load_avg = fixed_point_add(
             fixed_point_mul(fixed_point_div(int_to_fixed_point(59), int_to_fixed_point(60))
                 , load_avg)
