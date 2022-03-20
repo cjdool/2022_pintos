@@ -47,12 +47,12 @@ int fixed_point_div (int x, int y)
 
 int fixed_point_addn (int x, int n)
 {
-    return fixed_point_add(x, int_to_fixed_point(n));
+    return x + n * fraction;
 }
 
 int fixed_point_subn (int x, int n)
 {
-    return fixed_point_sub(x, int_to_fixed_point(n));
+    return x - n * fraction;
 }
 
 int fixed_point_muln (int x, int n)
