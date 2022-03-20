@@ -347,8 +347,10 @@ int64_t get_global_ticks (void)
 void
 thread_wake (int64_t ticks) 
 {
-  global_ticks = INT64_MAX;
+  int64_t minticks = INT64_MAX;
   struct list_elem *e = list_begin(&sleep_list);
+
+  ASSERT(intr_get_level() == INTR_OFF);
 
   while (e != list_end(&sleep_list))
   {
@@ -361,9 +363,11 @@ thread_wake (int64_t ticks)
       else
       {
           e = list_next(e);
-          save_global_ticks(t->wakeup_tick);
+          if (t->wakeup_tick <= minticks)
+              minticks = t->wakeup_tick;
       }
   }
+  global_ticks = minticks;
 }
 
 /* Sleeps the CPU. The current thread is put to sleep and 
@@ -374,15 +378,16 @@ thread_sleep (int64_t ticks)
     struct thread *cur = thread_current ();
     enum intr_level old_level;
 
-    if (cur != idle_thread)
-    {
-        old_level = intr_disable();
-        cur->wakeup_tick = ticks;
-        save_global_ticks(ticks);
-        list_push_back (&sleep_list, &cur->elem);
-        thread_block();
-        intr_set_level(old_level);
-    }
+    ASSERT(!intr_context());
+    ASSERT(cur != idle_thread);
+
+    old_level = intr_disable();
+    list_push_back (&sleep_list, &cur->elem);
+    cur->wakeup_tick = ticks;
+    save_global_ticks(ticks);
+    thread_block();
+
+    intr_set_level(old_level);
 }
 
 /* Yields the CPU.  The current thread is not put to sleep and
