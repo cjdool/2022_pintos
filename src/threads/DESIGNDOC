@@ -1,0 +1,261 @@
+            +--------------------+
+            |        EE 415      |
+            | PROJECT 1: THREADS |
+            |   DESIGN DOCUMENT  |
+            +--------------------+
+
+---- GROUP ----
+
+>> Fill in the names and email addresses of your group members.
+
+JuHyeon Jang	 <cjdool@kaist.ac.kr>
+DongEon Kim		 <dongeon97@kaist.ac.kr>
+
+---- PRELIMINARIES ----
+
+>> If you have any preliminary comments on your submission, notes for the
+>> TAs, or extra credit, please give them here.
+
+>> Please cite any offline or online sources you consulted while
+>> preparing your submission, other than the Pintos documentation, course
+>> text, lecture notes, and course staff.
+
+                 ALARM CLOCK
+                 ===========
+
+---- DATA STRUCTURES ----
+
+>> A1: Copy here the declaration of each new or changed `struct' or
+>> `struct' member, global or static variable, `typedef', or
+>> enumeration.  Identify the purpose of each in 25 words or less.
+
+	<pintos/src/threads/thread.h>
+
+	struct thread 
+	{
+		...
+
+		//Alarm Clock
+		int64_t wakeup_tick;				/* Ticks to wakeup thread */
+
+		...
+	}
+
+	<pintos/src/threads/thread.c>
+
+	static struct list sleep_list;			/* List of process in sleeping(BLOCKED) state */
+	static int64_t global_ticks;            /* Minimum ticks in sleep_list */
+											
+
+---- ALGORITHMS ----
+
+>> A2: Briefly describe what happens in a call to timer_sleep(),
+>> including the effects of the timer interrupt handler.
+
+	timer_sleep을 call한 thread가 thread_sleep()을 통해서 sleep_list에 들어가고
+	wakeup해아할 tick을 wakeup_tick에 저장, global_ticks와 비교해서 update한다.
+	매 tick마다 timer interrupt가 발생하는데, handler가 global_ticks와 현재 tick을
+	비교해서 thread_wake() 함수 호출, wakeup할 thread를 unblock하고 sleeplist에서 제거,
+	global_ticks를 update한다.
+
+>> A3: What steps are taken to minimize the amount of time spent in
+>> the timer interrupt handler?
+	
+	매 tick마다 thread_wakeup() 함수를 호출하지 않고, global_ticks라는 전역변수를 사용해서
+	필요할 때만 함수 호출 
+
+---- SYNCHRONIZATION ----
+
+>> A4: How are race conditions avoided when multiple threads call
+>> timer_sleep() simultaneously?
+
+	thread가 sleeplist에 push될 때 interrupt를 disable하기 때문에 race condition이 발생할 수 있는
+    sleep list에 다른 thread가 접근할 수 없다.
+
+>> A5: How are race conditions avoided when a timer interrupt occurs
+>> during a call to timer_sleep()?
+
+	thread가 sleeplist에 push될 때 interrupt를 disable하기 때문에 
+    timer interrupt가 처리되지 않는다.
+
+---- RATIONALE ----
+
+>> A6: Why did you choose this design?  In what ways is it superior to
+>> another design you considered?
+
+	busy waiting을 피하기 위해 sleep, wake를 사용해야 했고	
+	struct list, intr_disable(), intr_set_level()가 구현되어있었기 때문에
+	sleep_list를 만들어	list에 관련한 함수들을 사용하고 
+	race condition을 피하기 위해 interrupt를 조절할 수 있었다.
+
+             PRIORITY SCHEDULING
+             ===================
+
+---- DATA STRUCTURES ----
+
+>> B1: Copy here the declaration of each new or changed `struct' or
+>> `struct' member, global or static variable, `typedef', or
+>> enumeration.  Identify the purpose of each in 25 words or less.
+
+	<pintos/src/threads/thread.h>
+
+	struct thread 
+	{
+		...
+
+		//Priority scheduler
+		int ori_priority;					/* The initial priority */
+		struct lock *wait_on_lock;			/* The lock thread waits */
+		struct list donation;				/* donation list */
+		struct list_elem donation_elem;		/* donation list element */
+
+		...
+	}
+>> B2: Explain the data structure used to track priority donation.
+>> Use ASCII art to diagram a nested donation.  (Alternately, submit a
+>> .png file.)
+
+ ------------------      ------------------       ---------------- 
+ |  Thread H      |      |    Thread M    |       |   Thread L   |
+ |                |  =>  |                |  =>   |              |
+ | Request Lock A |      |   Hold Lock A  |       |  Hold Lock B |
+ |                |      | Request Lock B |       |              |
+ ------------------      -----------------        ---------------- 
+    Thread H가 Thread M에게 donate, 
+    Thread M이 Thread H에게 받은 priority를 Thread L에게 donate
+
+---- ALGORITHMS ----
+
+>> B3: How do you ensure that the highest priority thread waiting for
+>> a lock, semaphore, or condition variable wakes up first?
+
+	lock, semphore, condition variable 모두 wait할 때, 
+	list_insert_ordered() 함수를 사용하여 priority 순서에 맞게 list에 넣고
+	wakeup할 때, priority donation을 고려하여 list_sort해주고 list의 가장 앞에 있는 
+	element를 pop하여 unblock해주었다.
+
+>> B4: Describe the sequence of events when a call to lock_acquire()
+>> causes a priority donation.  How is nested donation handled?
+
+	thread가 lock_acquire할 때 request한 lock의 holer가 있을 경우, lock holder thread에게
+	priority donation을 하고 lock holder의 donations list에 insert해준다.
+	그리고 해당 lock의 wait list에 priority 순서대로 insert하고 thread_block()된다. 
+
+	Nested donation은 Thread H가 request한 lock을 Thread M이 hold, 
+	Thread M이 request한 lock을 Thread L이 hold한 경우이다.
+	그래서 lock acquire을 시도할 때 lock A holder가 기다리고 있는 lock B가 있는지 확인하고
+	lock B holder에도 priority donation을 진행한다. 이때 Thread M은 Thread H에게 donation 받은
+	priority를 Thread L에게 donate하는 경우이므로, Thread L의 donation list에 
+	Thread H는 insert하지 않는다.
+
+>> B5: Describe the sequence of events when lock_release() is called
+>> on a lock that a higher-priority thread is waiting for.
+
+	Thread H가 wait중인 lock A가 해제되는 경우, lock A holder의 donation list 중에서 
+	lock A를 기다리고 있던 thread들을 list에서 제거하고 lock A holder의 priority는 donation list
+	에 남아있는 thread들의 priority와 자신의 초기 priority중 가장 높은 것으로 재설정한다.
+	
+	그 이후 lock A의 wait list를 priority 순서대로 sort하고 가장 높은 thread를 unblock한다
+
+---- SYNCHRONIZATION ----
+
+>> B6: Describe a potential race in thread_set_priority() and explain
+>> how your implementation avoids it.  Can you use a lock to avoid
+>> this race?
+
+   thread_set_priority() 함수 내에 thread_order_test() 함수가 있는데      
+   priority가 변경된 후에 ready_list의 가장 priority가 높은 thread와 비교하기 때문에
+   core가 여러개인 경우, ready list를 수정할 때 lock을 잡지않으면 
+   global 변수인 ready list에 대해서 race condition이 발생할 수 있다.
+   하지만, pintOS에서는 core가 한 개인 경우만 생각하므로 이번 프로젝트에서는 
+   lock을 사용하지 않았다.
+   
+---- RATIONALE ----
+
+>> B7: Why did you choose this design?  In what ways is it superior to
+>> another design you considered?
+
+	Nested donation에서 thread H의 priority를 donate받은 모든 thread의 donation list에 thread H를
+	insert하지 않아서 lock acquire, release단계에서 더 간단해졌다.
+
+	current_thread는 가장 높은 priority를 가진 thread임을 이용하여 필요없는 조건문들을 사용하지 않았다.
+
+
+              ADVANCED SCHEDULER
+              ==================
+
+---- DATA STRUCTURES ----
+
+>> C1: Copy here the declaration of each new or changed `struct' or
+>> `struct' member, global or static variable, `typedef', or
+>> enumeration.  Identify the purpose of each in 25 words or less.
+
+---- ALGORITHMS ----
+
+>> C2: Suppose threads A, B, and C have nice values 0, 1, and 2.  Each
+>> has a recent_cpu value of 0.  Fill in the table below showing the
+>> scheduling decision and the priority and recent_cpu values for each
+>> thread after each given number of timer ticks:
+
+timer  recent_cpu    priority   thread
+ticks   A   B   C   A   B   C   to run
+-----  --  --  --  --  --  --   ------
+ 0
+ 4
+ 8
+12
+16
+20
+24
+28
+32
+36
+
+>> C3: Did any ambiguities in the scheduler specification make values
+>> in the table uncertain?  If so, what rule did you use to resolve
+>> them?  Does this match the behavior of your scheduler?
+
+>> C4: How is the way you divided the cost of scheduling between code
+>> inside and outside interrupt context likely to affect performance?
+
+---- RATIONALE ----
+
+>> C5: Briefly critique your design, pointing out advantages and
+>> disadvantages in your design choices.  If you were to have extra
+>> time to work on this part of the project, how might you choose to
+>> refine or improve your design?
+
+>> C6: The assignment explains arithmetic for fixed-point math in
+>> detail, but it leaves it open to you to implement it.  Why did you
+>> decide to implement it the way you did?  If you created an
+>> abstraction layer for fixed-point math, that is, an abstract data
+>> type and/or a set of functions or macros to manipulate fixed-point
+>> numbers, why did you do so?  If not, why not?
+
+               SURVEY QUESTIONS
+               ================
+
+Answering these questions is optional, but it will help us improve the
+course in future quarters.  Feel free to tell us anything you
+want--these questions are just to spur your thoughts.  You may also
+choose to respond anonymously in the course evaluations at the end of
+the quarter.
+
+>> In your opinion, was this assignment, or any one of the three problems
+>> in it, too easy or too hard?  Did it take too long or too little time?
+
+    난이도는 그렇게 높지 않았지만 시간이 꽤 오래걸리는 편입니다.
+
+>> Did you find that working on a particular part of the assignment gave
+>> you greater insight into some aspect of OS design?
+
+    interrupt handler와 scheduling 부분을 보다 정확하게 이해할 수 있었습니다.
+
+>> Is there some particular fact or hint we should give students in
+>> future quarters to help them solve the problems?  Conversely, did you
+>> find any of our guidance to be misleading?
+
+>> Do you have any suggestions for the TAs to more effectively assist
+>> students, either for future quarters or the remaining projects?
+
+>> Any other comments?
