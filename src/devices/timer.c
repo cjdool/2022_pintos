@@ -172,10 +172,10 @@ timer_interrupt (struct intr_frame *args UNUSED)
 {
   ticks++;
   thread_tick ();
-  thread_count_tick();
 
   enum intr_level old_level = intr_disable();
 
+  thread_count_tick();
   if(thread_mlfqs){
       inc_recent_cpu();
       if (ticks % TIMER_FREQ == 0)
