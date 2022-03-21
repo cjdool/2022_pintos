@@ -36,9 +36,6 @@ static struct list sleep_list;
    when they are first scheduled and removed when they exit. */
 static struct list all_list;
 
-/* List of process in SLEEPING(BLOCKED) state */
-static struct list sleep_list;
-
 /* Idle thread. */
 static struct thread *idle_thread;
 
