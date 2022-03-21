@@ -219,15 +219,6 @@ donate_priority (void)
    interrupt handler.  This function may be called with
    interrupts disabled, but interrupts will be turned back on if
    we need to sleep. */
-bool 
-cmp_priority_d(const struct list_elem *a_, const struct list_elem *b_, void* aux UNUSED)
-{
-	const struct thread *a = list_entry(a_, struct thread, d_elem);
-	const struct thread *b = list_entry(b_, struct thread, d_elem);
-
-	return a->priority > b->priority;
-
-}
 void
 lock_acquire (struct lock *lock)
 {

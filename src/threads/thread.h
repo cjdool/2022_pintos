@@ -109,7 +109,7 @@ struct thread
 
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
-    int64_t wakeup_tick                /* Local tick value */
+    int64_t wakeup_tick;                /* Local tick value */
 	int64_t ticks_running;				/* Ticks from creation  */
   };
 
