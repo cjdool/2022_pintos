@@ -169,7 +169,8 @@ thread_count_tick(void)
 void
 thread_tick (void) 
 {
-  struct thread *t = thread_current();
+  struct thread *t = thread_current ();
+
   /* Update statistics. */
   if (t == idle_thread)
     idle_ticks++;
@@ -246,6 +247,7 @@ thread_create (const char *name, int priority,
 
   /* Add to run queue. */
   thread_unblock (t);
+
   thread_order_test();
 
   return tid;
