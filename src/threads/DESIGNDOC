@@ -36,15 +36,14 @@ DongEon Kim		 <dongeon97@kaist.ac.kr>
 		...
 
 		//Alarm Clock
-		int64_t ticks_wakeup;				/* Ticks to wakeup thread */
-
+		int64_t wakeup_tick;				/* Ticks to wakeup thread */
 		...
 	}
 
 	<pintos/src/threads/thread.c>
 
 	static struct list sleep_list;			/* List of process in sleeping(BLOCKED) state */
-	static int64_t next_tick_to_wakeup = INT64_MAX;  /* Minimum ticks in sleep_list */
+	static int64_t global_ticks;            /* Minimum ticks in sleep_list */
 											
 
 ---- ALGORITHMS ----
@@ -53,15 +52,15 @@ DongEon Kim		 <dongeon97@kaist.ac.kr>
 >> including the effects of the timer interrupt handler.
 
 	timer_sleep을 call한 thread가 thread_sleep()을 통해서 sleep_list에 들어가고
-	wakeup해아할 tick을 ticks_wakeup에 저장, next_tick_to_wakeup과 비교해서 update한다.
-	매 tick마다 timer interrupt가 발생하는데, handler가 next_tick_to_wakeup과 현재 tick을
-	비교해서 thread_wakeup() 함수 호출, wakeup할 thread를 unblock하고 sleeplist에서 제거,
-	next_tick_to_wakeup을 update한다.
+	wakeup해아할 tick을 wakeup_tick에 저장, global_ticks와 비교해서 update한다.
+	매 tick마다 timer interrupt가 발생하는데, handler가 global_ticks와 현재 tick을
+	비교해서 thread_wake() 함수 호출, wakeup할 thread를 unblock하고 sleeplist에서 제거,
+	global_ticks를 update한다.
 
 >> A3: What steps are taken to minimize the amount of time spent in
 >> the timer interrupt handler?
 	
-	매 tick마다 thread_wakeup() 함수를 호출하지 않고, next_tick_to_wakeup 변수를 사용해서
+	매 tick마다 thread_wakeup() 함수를 호출하지 않고, global_ticks라는 전역변수를 사용해서
 	필요할 때만 함수 호출 
 
 ---- SYNCHRONIZATION ----
@@ -69,12 +68,14 @@ DongEon Kim		 <dongeon97@kaist.ac.kr>
 >> A4: How are race conditions avoided when multiple threads call
 >> timer_sleep() simultaneously?
 
-	thread가 sleeplist에 push될 때 interrupt를 disable한다.
+	thread가 sleeplist에 push될 때 interrupt를 disable하기 때문에 race condition이 발생할 수 있는
+    sleep list에 다른 thread가 접근할 수 없다.
 
 >> A5: How are race conditions avoided when a timer interrupt occurs
 >> during a call to timer_sleep()?
 
-	thread가 sleeplist에 push될 때 interrupt를 disable한다.
+	thread가 sleeplist에 push될 때 interrupt를 disable하기 때문에 
+    timer interrupt가 처리되지 않는다.
 
 ---- RATIONALE ----
 
@@ -102,16 +103,24 @@ DongEon Kim		 <dongeon97@kaist.ac.kr>
 		...
 
 		//Priority scheduler
-		int old_priority;					/* The initial priority */
+		int ori_priority;					/* The initial priority */
 		struct lock *wait_on_lock;			/* The lock thread waits */
-		struct list donations;				/* donation list */
-		struct list_elem d_elem;			/* donation list element */
-
+		struct list donation;				/* donation list */
+		struct list_elem donation_elem;		/* donation list element */
 		...
 	}
 >> B2: Explain the data structure used to track priority donation.
 >> Use ASCII art to diagram a nested donation.  (Alternately, submit a
 >> .png file.)
+
+ ------------------      ------------------       ---------------- 
+ |  Thread H      |      |    Thread M    |       |   Thread L   |
+ |                |  =>  |                |  =>   |              |
+ | Request Lock A |      |   Hold Lock A  |       |  Hold Lock B |
+ |                |      | Request Lock B |       |              |
+ ------------------      -----------------        ---------------- 
+    Thread H가 Thread M에게 donate, 
+    Thread M이 Thread H에게 받은 priority를 Thread L에게 donate
 
 ---- ALGORITHMS ----
 
@@ -152,6 +161,13 @@ DongEon Kim		 <dongeon97@kaist.ac.kr>
 >> how your implementation avoids it.  Can you use a lock to avoid
 >> this race?
 
+   thread_set_priority() 함수 내에 thread_order_test() 함수가 있는데      
+   priority가 변경된 후에 ready_list의 가장 priority가 높은 thread와 비교하기 때문에
+   core가 여러개인 경우, ready list를 수정할 때 lock을 잡지않으면 
+   global 변수인 ready list에 대해서 race condition이 발생할 수 있다.
+   하지만, pintOS에서는 core가 한 개인 경우만 생각하므로 이번 프로젝트에서는 
+   lock을 사용하지 않았다.
+   
 ---- RATIONALE ----
 
 >> B7: Why did you choose this design?  In what ways is it superior to
@@ -295,8 +311,12 @@ the quarter.
 >> In your opinion, was this assignment, or any one of the three problems
 >> in it, too easy or too hard?  Did it take too long or too little time?
 
+    난이도는 그렇게 높지 않았지만 시간이 꽤 오래걸리는 편입니다.
+
 >> Did you find that working on a particular part of the assignment gave
 >> you greater insight into some aspect of OS design?
+
+    interrupt handler와 scheduling 부분을 보다 정확하게 이해할 수 있었습니다.
 
 >> Is there some particular fact or hint we should give students in
 >> future quarters to help them solve the problems?  Conversely, did you
