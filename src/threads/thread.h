@@ -110,6 +110,7 @@ struct thread
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
     int64_t wakeup_tick                /* Local tick value */
+	int64_t ticks_running;				/* Ticks from creation  */
   };
 
 /* If false (default), use round-robin scheduler.
@@ -161,5 +162,5 @@ void calculate_load_avg (void);
 void inc_recent_cpu (void);
 void recalculate_priority (void);
 void recalculate_recent_cpu (void);
-
+void thread_count_tick(void);
 #endif /* threads/thread.h */

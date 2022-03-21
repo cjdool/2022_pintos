@@ -36,6 +36,12 @@ static struct list sleep_list;
    when they are first scheduled and removed when they exit. */
 static struct list all_list;
 
+/* List of process in SLEEPING(BLOCKED) state */
+static struct list sleep_list;
+
+/* Minimum ticks on the ticks_wakeup of threads on sleep_list  */
+static int64_t next_tick_to_wakeup = INT64_MAX;
+
 /* Idle thread. */
 static struct thread *idle_thread;
 
@@ -152,13 +158,24 @@ thread_start (void)
   sema_down (&idle_started);
 }
 
+void
+thread_count_tick(void)
+{
+	struct list_elem * e;
+	struct thread *t;
+	for(e = list_begin(&all_list); e != list_end(&all_list);e=list_next(e)){
+		t = list_entry(e, struct thread, allelem);
+		t->ticks_running++;
+	}
+
+}
+
 /* Called by the timer interrupt handler at each timer tick.
    Thus, this function runs in an external interrupt context. */
 void
 thread_tick (void) 
 {
-  struct thread *t = thread_current ();
-
+  struct thread *t = thread_current();
   /* Update statistics. */
   if (t == idle_thread)
     idle_ticks++;
@@ -235,7 +252,6 @@ thread_create (const char *name, int priority,
 
   /* Add to run queue. */
   thread_unblock (t);
-
   thread_order_test();
 
   return tid;
@@ -319,6 +335,11 @@ thread_exit (void)
 {
   ASSERT (!intr_context ());
 
+  if( thread_report_latency ){
+	struct thread *t = thread_current();
+	  //printf("Thread %s completed in %lld ticks.\n",t->name,t->ticks_running);
+	  msg("Thread %s completed in %lld ticks.",t->name,t->ticks_running);
+  }
 #ifdef USERPROG
   process_exit ();
 #endif
@@ -406,6 +427,67 @@ thread_yield (void)
   cur->status = THREAD_READY;
   schedule ();
   intr_set_level (old_level);
+}
+
+void 
+update_next_tick_to_wakeup(int64_t ticks)
+{
+	if( ticks <= next_tick_to_wakeup)
+		next_tick_to_wakeup = ticks;
+}
+
+int64_t 
+get_next_tick_to_wakeup(void)
+{
+	return next_tick_to_wakeup ;
+}
+
+/* Push back the thread to the sleep list.
+   Update the ticks_wakeup */
+void
+thread_sleep(int64_t ticks)
+{
+  struct thread *cur = thread_current ();
+  enum intr_level old_level;
+  
+  ASSERT (!intr_context ());
+  ASSERT (cur != idle_thread);
+
+  old_level = intr_disable ();
+    list_push_back (&sleep_list, &cur->elem);
+	cur->ticks_wakeup = ticks;
+	update_next_tick_to_wakeup(ticks);
+	thread_block();
+  intr_set_level (old_level);
+}
+
+/*
+
+*/
+void
+thread_wakeup(int64_t ticks)
+{
+	struct list_elem * e;	
+	struct thread *t;
+	int64_t minticks = INT64_MAX;
+
+
+	ASSERT(intr_get_level() == INTR_OFF);
+
+	if( !list_empty(&sleep_list)){
+		for( e = list_begin(&sleep_list); e != list_end(&sleep_list);){
+			t = list_entry(e, struct thread, elem);						
+			if(t->ticks_wakeup <= ticks){
+				e =	list_remove(&t->elem);
+				thread_unblock(t);
+			} else {
+				e = list_next(e);
+				if( t->ticks_wakeup <= minticks)
+					minticks = t->ticks_wakeup;
+			}
+		}
+	}
+	next_tick_to_wakeup=minticks;
 }
 
 /* Invoke function 'func' on all threads, passing along 'aux'.
@@ -656,6 +738,7 @@ init_thread (struct thread *t, const char *name, int priority)
   t->wakeup_tick = 0;
   t->nice = NICE_DEFAULT;
   t->recent_cpu = RECENT_CPU_DEFAULT;
+  t->ticks_running = 0;
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
