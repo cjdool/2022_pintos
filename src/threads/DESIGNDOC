@@ -82,10 +82,9 @@ DongEon Kim		 <dongeon97@kaist.ac.kr>
 >> A6: Why did you choose this design?  In what ways is it superior to
 >> another design you considered?
 
-	busy waiting을 피하기 위해 sleep, wake를 사용해야 했고	
-	struct list, intr_disable(), intr_set_level()가 구현되어있었기 때문에
-	sleep_list를 만들어	list에 관련한 함수들을 사용하고 
-	race condition을 피하기 위해 interrupt를 조절할 수 있었다.
+    1. sleep_list를 두어 sleep thread를 전체 관리함
+    2. wakeup 시간을 thread당 정보로 두어서, 새로운 관리 자료구조 추가를 하지 않음
+    3. sleep_list의 race condition을 인터럽트 on/off로 방지
 
              PRIORITY SCHEDULING
              ===================
@@ -113,12 +112,13 @@ DongEon Kim		 <dongeon97@kaist.ac.kr>
 >> Use ASCII art to diagram a nested donation.  (Alternately, submit a
 >> .png file.)
 
- ------------------      ------------------       ---------------- 
- |  Thread H      |      |    Thread M    |       |   Thread L   |
- |                |  =>  |                |  =>   |              |
- | Request Lock A |      |   Hold Lock A  |       |  Hold Lock B |
- |                |      | Request Lock B |       |              |
- ------------------      -----------------        ---------------- 
+ ----------------------------------------      ----------------------------------------      ---------------- 
+ |               Thread H               |      |               Thread M               |      |   Thread L   |
+ |                                      |      |              own  Lock A             |      |  own Lock B  |
+ |                                      |  =>  |                                      |  =>  |              |
+ | wait_on_lock = Lock A                |      | wait_on_lock = Lock B                |      |              |
+ | ordered insert to donation list of M |      | ordered insert to donation list of L |      |              |
+ ----------------------------------------      ----------------------------------------      ---------------- 
     Thread H가 Thread M에게 donate, 
     Thread M이 Thread H에게 받은 priority를 Thread L에게 donate
 
