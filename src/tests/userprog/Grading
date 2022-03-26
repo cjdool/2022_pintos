@@ -5,7 +5,8 @@
 # If you do so properly, the base file system functionality
 # should come "for free".  Thus, the points emphasis below.
 
-35%	tests/userprog/Rubric.functionality
-25%	tests/userprog/Rubric.robustness
-10%	tests/userprog/no-vm/Rubric
-30%	tests/filesys/base/Rubric
+24.5%	tests/userprog/Rubric.functionality
+17.5%	tests/userprog/Rubric.robustness
+30%	tests/userprog/Rubric.signal
+7%	tests/userprog/no-vm/Rubric
+21%	tests/filesys/base/Rubric

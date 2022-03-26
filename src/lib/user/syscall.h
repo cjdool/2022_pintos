@@ -33,6 +33,12 @@ int write (int fd, const void *buffer, unsigned length);
 void seek (int fd, unsigned position);
 unsigned tell (int fd);
 void close (int fd);
+void sigaction (int signum, void (*handler) (void));
+void sendsig (pid_t, int signum);
+#define SIGONE 1
+#define SIGTWO 2
+#define SIGTHREE 3
+
 
 /* Project 3 and optionally project 4. */
 mapid_t mmap (int fd, void *addr);

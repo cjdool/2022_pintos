@@ -141,6 +141,21 @@ close (int fd)
   syscall1 (SYS_CLOSE, fd);
 }
 
+void sigaction (int signum, void (*handler) (void))
+{
+  syscall2 (SYS_SIGACTION, signum, handler);
+}
+
+void sendsig (pid_t pid, int signum)
+{
+  syscall2 (SYS_SENDSIG, pid, signum);
+}
+
+void sched_yield ()
+{
+  syscall0 (SYS_YIELD);
+}
+
 mapid_t
 mmap (int fd, void *addr)
 {

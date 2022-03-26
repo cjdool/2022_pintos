@@ -23,9 +23,6 @@ typedef int tid_t;
 #define PRI_MIN 0                       /* Lowest priority. */
 #define PRI_DEFAULT 31                  /* Default priority. */
 #define PRI_MAX 63                      /* Highest priority. */
-#define NICE_DEFAULT 0                  /* Default nice. */
-#define RECENT_CPU_DEFAULT 0            /* Default recent_cpu. */
-#define LOAD_AVG_DEFAULT 0              /* Default load_avg. */
 
 /* A kernel thread or user process.
 
@@ -90,14 +87,8 @@ struct thread
     enum thread_status status;          /* Thread state. */
     char name[16];                      /* Name (for debugging purposes). */
     uint8_t *stack;                     /* Saved stack pointer. */
-    int ori_priority;                   /* Original Priority. (for priority donation) */
-    int priority;                       /* Priority. (Current) */
-    struct lock *wait_on_lock;          /* Lock waiting. */   
-    struct list donation;               /* List of Donation threads list. */
-    struct list_elem donation_elem;     /* List element for donation list. */
+    int priority;                       /* Priority. */
     struct list_elem allelem;           /* List element for all threads list. */
-    int nice;                           /* Nice value. */
-    int recent_cpu;                     /* Recent cpu counter. */
 
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
@@ -109,18 +100,12 @@ struct thread
 
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
-    int64_t wakeup_tick;                /* Local tick value */
-	int64_t ticks_running;				/* Ticks from creation  */
   };
 
 /* If false (default), use round-robin scheduler.
    If true, use multi-level feedback queue scheduler.
    Controlled by kernel command-line option "-o mlfqs". */
 extern bool thread_mlfqs;
-extern bool thread_report_latency;
-
-bool cmp_priority (struct list_elem *first, struct list_elem *second, void *aux UNUSED);
-void thread_order_test (void);
 
 void thread_init (void);
 void thread_start (void);
@@ -139,14 +124,11 @@ tid_t thread_tid (void);
 const char *thread_name (void);
 
 void thread_exit (void) NO_RETURN;
-void thread_wake (int64_t ticks);
-void thread_sleep (int64_t ticks);
 void thread_yield (void);
 
 /* Performs some operation on thread t, given auxiliary data AUX. */
 typedef void thread_action_func (struct thread *t, void *aux);
 void thread_foreach (thread_action_func *, void *);
-void thread_donation_reorder (void);
 
 int thread_get_priority (void);
 void thread_set_priority (int);
@@ -156,11 +138,4 @@ void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
 
-void calculate_priority (struct thread *t);
-void calculate_recent_cpu (struct thread *t);
-void calculate_load_avg (void);
-void inc_recent_cpu (void);
-void recalculate_priority (void);
-void recalculate_recent_cpu (void);
-void thread_count_tick(void);
 #endif /* threads/thread.h */

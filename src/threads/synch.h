@@ -16,7 +16,6 @@ void sema_down (struct semaphore *);
 bool sema_try_down (struct semaphore *);
 void sema_up (struct semaphore *);
 void sema_self_test (void);
-bool cmp_donation (const struct list_elem *first, const struct list_elem *second, void *aux);
 
 /* Lock. */
 struct lock 
