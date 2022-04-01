@@ -21,6 +21,46 @@
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
 
+void argument_stack(char **argv, int argc, void **esp)
+{
+    int i, j;
+
+    /* argv push */
+    for (i = argc - 1; i>=0; i--)
+    {
+        int argv_len = strlen(argv[i]);
+        *esp -= (argv_len + 1);
+        memcpy(*esp, argv[i], argv_len + 1);
+    }
+
+    /* check padding */
+    while ((int)*esp % 4 != 0)
+    {
+        (*esp)--;
+        **(uint8_t **)esp = (uint8_t)0;
+    }
+
+    /* argv address push */
+    (*esp) -= 4;
+    **(char ***)esp = (char *)0;
+
+    for (i = argc-1; i>=0; i--)
+    {
+        *esp -= 4;
+        **(char ***)esp = argv[i];
+    }
+
+    /* argv argc value push*/
+    (*esp) -= 4;
+    **(char ***)esp = argv;
+    (*esp) -= 4;
+    **(char ***)esp = argc;
+
+    /*set fake return address*/
+    *esp -= 4;
+    **(char ***)esp = (void *)0;
+}
+
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
    before process_execute() returns.  Returns the new process's
@@ -38,6 +78,9 @@ process_execute (const char *file_name)
     return TID_ERROR;
   strlcpy (fn_copy, file_name, PGSIZE);
 
+  char *save_ptr;
+  file_name = strtok_r(file_name, " ", &save_ptr);
+
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
   if (tid == TID_ERROR)
@@ -53,18 +96,34 @@ start_process (void *file_name_)
   char *file_name = file_name_;
   struct intr_frame if_;
   bool success;
+  char *argv[20];
+  int argc = 0;
+  char *token, *save_ptr;
+
+  for (token = strtok_r(file_name, " ", &save_ptr); token != NULL;
+       token = strtok_r(NULL, " ", &save_ptr))
+  {
+      argv[argc] = token;
+      argc++;
+  }
 
   /* Initialize interrupt frame and load executable. */
   memset (&if_, 0, sizeof if_);
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
+
   success = load (file_name, &if_.eip, &if_.esp);
 
   /* If load failed, quit. */
   palloc_free_page (file_name);
   if (!success) 
     thread_exit ();
+
+  argument_stack(argv, argc, &if_.esp);
+  if_.edi = argc;
+  if_.esi = (uint32_t)if_.esp + sizeof(void *);
+  hex_dump(if_.esp, if_.esp, PHYS_BASE - if_.esp, true);
 
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
