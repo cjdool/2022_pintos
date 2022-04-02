@@ -117,11 +117,13 @@ start_process (void *file_name_)
 
   success = load (file_name, &if_.eip, &if_.esp);
 
-  argument_stack(argv, argc, &if_.esp);
-  if_.edi = argc;
-  if_.esi = (uint32_t)if_.esp + sizeof(void *);
-  hex_dump(if_.esp, if_.esp, PHYS_BASE - if_.esp, true);
-
+  if (success)
+  {
+      argument_stack(argv, argc, &if_.esp);
+      if_.edi = argc;
+      if_.esi = (uint32_t)if_.esp + sizeof(void *);
+      //hex_dump(if_.esp, if_.esp, PHYS_BASE - if_.esp, true);
+  }
   /* If load failed, quit. */
   palloc_free_page (file_name);
   if (!success) 
