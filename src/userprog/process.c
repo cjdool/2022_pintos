@@ -23,14 +23,16 @@ static bool load (const char *cmdline, void (**eip) (void), void **esp);
 
 void argument_stack(char **argv, int argc, void **esp)
 {
-    int i, j;
+    int i;
+    int argv_len;
 
     /* argv push */
     for (i = argc - 1; i>=0; i--)
     {
-        int argv_len = strlen(argv[i]);
+        argv_len = strlen(argv[i]);
         *esp -= (argv_len + 1);
         memcpy(*esp, argv[i], argv_len + 1);
+        argv[i] = *esp;
     }
 
     /* check padding */
@@ -42,23 +44,23 @@ void argument_stack(char **argv, int argc, void **esp)
 
     /* argv address push */
     (*esp) -= 4;
-    **(char ***)esp = (char *)0;
+    **(uint32_t **)esp = (uint32_t)0;
 
     for (i = argc-1; i>=0; i--)
     {
         *esp -= 4;
-        **(char ***)esp = argv[i];
+        **(uint32_t **)esp = argv[i];
     }
 
     /* argv argc value push*/
     (*esp) -= 4;
-    **(char ***)esp = argv;
+    **(uint32_t **)esp = *esp + 4;
     (*esp) -= 4;
-    **(char ***)esp = argc;
+    **(uint32_t **)esp = argc;
 
     /*set fake return address*/
     *esp -= 4;
-    **(char ***)esp = (void *)0;
+    **(uint32_t **)esp = (uint32_t)0;
 }
 
 /* Starts a new thread running a user program loaded from
@@ -96,7 +98,7 @@ start_process (void *file_name_)
   char *file_name = file_name_;
   struct intr_frame if_;
   bool success;
-  char *argv[20];
+  char *argv[20]; // maximum argument count
   int argc = 0;
   char *token, *save_ptr;
 
@@ -115,15 +117,16 @@ start_process (void *file_name_)
 
   success = load (file_name, &if_.eip, &if_.esp);
 
+  argument_stack(argv, argc, &if_.esp);
+  if_.edi = argc;
+  if_.esi = (uint32_t)if_.esp + sizeof(void *);
+  hex_dump(if_.esp, if_.esp, PHYS_BASE - if_.esp, true);
+
   /* If load failed, quit. */
   palloc_free_page (file_name);
   if (!success) 
     thread_exit ();
 
-  argument_stack(argv, argc, &if_.esp);
-  if_.edi = argc;
-  if_.esi = (uint32_t)if_.esp + sizeof(void *);
-  hex_dump(if_.esp, if_.esp, PHYS_BASE - if_.esp, true);
 
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
@@ -147,6 +150,7 @@ start_process (void *file_name_)
 int
 process_wait (tid_t child_tid UNUSED) 
 {
+  while(true);
   return -1;
 }
 
