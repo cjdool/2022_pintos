@@ -8,10 +8,21 @@
 #include "devices/shutdown.h"
 
 
-static void syscall_handler (struct intr_frame *);
-void halt(void);
-void exit(int);
 void check_address(void *);
+void halt(void);
+void exit(int status);
+pid_t exec(const char *cmd_line);
+int wait(pid_t pid);
+bool create(const char *file, unsigned initial_size);
+bool remove(const char *file);
+int open(const char *file);
+int filesize(int fd);
+int read(int fd, void *buffer, unsigned size);
+int write(int fd, const void *buffer, unsigned size);
+void seek(int fd, unsigned position);
+unsigned tell(int fd);
+void close(int fd);
+static void syscall_handler (struct intr_frame *);
 
 void
 syscall_init (void) 
@@ -34,11 +45,111 @@ void halt(void){
 void exit(int status){
     struct thread * t = thread_current();
     printf("%s: exit(%d)\n",t->name,status);
-
     t->exit_status = status;
     thread_exit();
+}
+
+pid_t exec(const char *cmd_line){
 
 }
+
+int wait(pid_t pid){
+
+}
+
+bool create(const char *file, unsigned initial_size)
+{
+    return filesys_create(file, initial_size);
+}
+
+bool remove(const char *file)
+{
+    return filesys_remove(file);
+}
+
+int open(const char *file)
+{
+    int fd;
+    struct thread *cur = thread_current();
+    struct file *openfile = filesys_open(file);
+
+    fd = cur->next_fd;
+    cur->fdt[fd] = openfile;
+    cur->next_fd++;
+
+    return fd;
+}
+
+int filesize(int fd)
+{
+    struct thread *cur = thread_current();
+    struct file *curfile = cur->fdt[fd];
+
+    return (int)file_length(curfile);
+}
+
+int read(int fd, void *buffer, unsigned size)
+{
+    struct thread *cur = thread_current();
+    struct file *curfile = cur->fdt[fd];
+    int retvali = -1;
+
+    if (fd == 0)
+    {
+        retval = (int)input_getc();
+    }
+    else
+    {
+        retval = (int)file_read(curfile, buffer, size);
+    }
+
+    return retval;
+}
+
+int write(int fd, const void *buffer, unsigned size)
+{
+    struct thread *cur = thread_current();
+    struct file *curfile = cur->fdt[fd];
+    int retval = -1;
+
+    if (fd == 1)
+    {
+        putbuf(buffer, size);
+        retval = size;
+    }
+    else
+    {
+        retval = (int)file_write(curfile, buffer, size);
+    }
+
+    return retval;
+}
+
+void seek(int fd, unsigned position)
+{
+    struct thread *cur = thread_current();
+    struct file *curfile = cur->fdt[fd];
+    
+    file_seek(curfile, position);
+}
+
+unsigned tell(int fd)
+{
+    struct thread *cur = thread_current();
+    struct file *curfile = cur->fdt[fd];
+
+    return (unsigned)file_tell(curfile);
+}
+
+void close(int fd)
+{
+    struct thread *cur = thread_current();
+    struct file *curfile = cur->fdt[fd];
+
+    file_close(curfile);
+    cur->fdt[fd] = NULL;
+}
+
 static void
 syscall_handler (struct intr_frame *f ) 
 {
