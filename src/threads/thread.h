@@ -101,7 +101,9 @@ struct thread
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
 
-    int exit_status;                         /* exit status */
+    int exit_status;                         /* Exit status */
+    struct file fdt[64];                     /* File Descriptor Table */
+    int next_fd;                             /* Next file descriptor */
   };
 
 /* If false (default), use round-robin scheduler.
