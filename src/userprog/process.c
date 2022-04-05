@@ -21,6 +21,34 @@
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
 
+struct thread * get_child_process(int pid){
+    
+    struct thread * t = thread_current();
+    struct list_elem *e;
+
+    for (e = list_begin (&t->child_list); e != list_end (&t->child_list); e = list_next (e)){
+        if( list_entry(e, struct thread, child_elem)->tid == pid ){
+            return list_entry(e, struct thread, child_elem);
+        }
+    }
+
+    return NULL;
+}
+
+void remove_child_process(struct thread * t){
+    
+  /*  struct thread * p = t->parent;
+    struct list_elem *e;
+    for( e =list_begin(&p->child_list);e!=list_end(&p->child_list);e =list_next(e)){
+        if( list_entry(e, struct thread, child_elem)->tid == t->tid){
+           list_remove(e); 
+        }
+    }*/
+    list_remove(&t->child_elem);
+    palloc_free_page(t);
+
+}
+
 void argument_stack(char **argv, int argc, void **esp)
 {
     int i;
@@ -85,8 +113,18 @@ process_execute (const char *file_name)
 
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
+
+  struct thread * child = get_child_process(tid);
+  if( child == NULL) {
+        return -1;
+  }
+  sema_down(&child->load_sema);
+
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy); 
+  if(thread_current()->load_status == 0 ){
+        return -1;
+  }
   return tid;
 }
 
@@ -115,6 +153,7 @@ start_process (void *file_name_)
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
 
+  struct thread * t = thread_current();
   success = load (file_name, &if_.eip, &if_.esp);
 
   if (success)
@@ -124,6 +163,10 @@ start_process (void *file_name_)
       if_.esi = (uint32_t)if_.esp + sizeof(void *);
       //hex_dump(if_.esp, if_.esp, PHYS_BASE - if_.esp, true);
   }
+
+  t->parent->load_status = success;
+  sema_up(&t->load_sema);
+
   /* If load failed, quit. */
   palloc_free_page (file_name);
   if (!success) 
@@ -150,10 +193,34 @@ start_process (void *file_name_)
    This function will be implemented in problem 2-2.  For now, it
    does nothing. */
 int
-process_wait (tid_t child_tid UNUSED) 
+process_wait (tid_t child_tid ) 
 {
-  while(true);
-  return -1;
+    struct thread * t = thread_current();
+    int status ;
+
+//    while(true);
+
+    if( child_tid < 0) { //execute fails
+        return -1 ;
+
+    } else{
+        if( get_child_process(child_tid) ==NULL || t->wait_on == child_tid){
+            return -1;
+        } else {
+            struct thread *child = get_child_process(child_tid);
+            t->wait_on =child_tid;
+            sema_down(&child->wait_sema); 
+
+            //After child process terminates
+            status = t->exit_status;
+            if( child -> by_exit != 1){
+                status = -1 ;
+            }
+            remove_child_process(child);
+            t->wait_on = -1;
+        }
+    }
+  return status;
 }
 
 /* Free the current process's resources. */
