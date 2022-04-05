@@ -4,6 +4,8 @@
 #include <debug.h>
 #include <list.h>
 #include <stdint.h>
+#include <filesys/file.h>
+#include <threads/synch.h>
 
 /* States in a thread's life cycle. */
 enum thread_status
@@ -23,6 +25,7 @@ typedef int tid_t;
 #define PRI_MIN 0                       /* Lowest priority. */
 #define PRI_DEFAULT 31                  /* Default priority. */
 #define PRI_MAX 63                      /* Highest priority. */
+
 
 /* A kernel thread or user process.
 
@@ -101,9 +104,20 @@ struct thread
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
 
-    int exit_status;                         /* Exit status */
-    struct file fdt[64];                     /* File Descriptor Table */
+  //  struct file fdt[64];                     /* File Descriptor Table */
     int next_fd;                             /* Next file descriptor */
+
+    struct thread * parent;             /* parent thread */
+    struct list child_list;             /* child thread list */
+    struct list_elem child_elem;
+    struct semaphore wait_sema;   /* wait until child process exit */ 
+    struct semaphore load_sema;   /* wait until child process loaded */
+    int wait_on;                        /* which pid thread waits on*/
+    int exit_status;                         /* Exit status */
+    int load_status;                         /* Load status */
+    int by_exit;                             /* exit by exit() system call */
+
+
   };
 
 /* If false (default), use round-robin scheduler.

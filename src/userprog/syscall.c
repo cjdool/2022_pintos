@@ -7,6 +7,8 @@
 #include "threads/vaddr.h"
 #include "devices/shutdown.h"
 
+typedef int pid_t;
+
 void check_address(void *);
 void halt(void);
 void exit(int status);
@@ -22,14 +24,24 @@ void seek(int fd, unsigned position);
 unsigned tell(int fd);
 void close(int fd);
 static void syscall_handler (struct intr_frame *);
-void halt(void);
-void exit(int);
-void check_address(void *);
 
 void
 syscall_init (void) 
 {
   intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
+}
+
+void get_argument(void *esp, int *arg, int count){
+    int i;
+
+    check_address((void *)esp);
+    void * sp = esp;
+    for(i = 0 ; i<count; i++){
+        sp += 4;
+        arg[i] = *(int *)sp;
+
+    }
+
 }
 
 void check_address(void *addr){
@@ -48,20 +60,31 @@ void exit(int status){
     struct thread * t = thread_current();
     printf("%s: exit(%d)\n",t->name,status);
 
+    t->by_exit = 1;
     t->exit_status = status;
     thread_exit();
-
 }
 
 pid_t exec(const char *cmd_line){
+    pid_t pid;
 
+    pid = process_execute(cmd_line);
+    
+    return pid;
 }
 
 int wait(pid_t pid){
 
+    int status ;
+    struct thread * child = get_child_process((int)pid);
+
+    status = process_wait((tid_t) pid); 
+
+    return status;
+
 }
 
-bool create(const char *file, unsigned initial_size)
+/*bool create(const char *file, unsigned initial_size)
 {
     return filesys_create(file, initial_size);
 }
@@ -153,22 +176,31 @@ void close(int fd)
     file_close(curfile);
     cur->fdt[fd] = NULL;
 }
-
+*/
 static void
 syscall_handler (struct intr_frame *f ) 
 {
-  uint32_t number = f->vec_no;
+    int *arg[3];
+    uint32_t *sp =f->esp;
+    check_address((void*)sp);
+    uint32_t number = *sp;
+  // printf("syscall number : %d\n",number);
   
   switch(number) {
     case SYS_HALT :
         halt();
         break;
     case SYS_EXIT :
-       // exit();
+        get_argument(sp, arg, 1);
+        exit(arg[0]);
         break;
     case SYS_EXEC :
+        get_argument(sp, arg, 1);
+        f->eax = exec((const char *)arg[0]);
         break;
     case SYS_WAIT :
+        get_argument(sp, arg, 1);
+        f->eax = wait(arg[0]);
         break;
     case SYS_CREATE :
         break;
