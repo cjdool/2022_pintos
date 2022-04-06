@@ -6,6 +6,8 @@ struct lock filesys_lock;
 
 typedef int pid_t;
 
+struct lock filesys_lock;
+
 void syscall_init (void);
 void halt(void);
 void exit(int status);
