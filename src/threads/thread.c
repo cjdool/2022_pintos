@@ -296,6 +296,7 @@ thread_exit (void)
      and schedule another process.  That process will destroy us
      when it calls thread_schedule_tail(). */
   intr_disable ();
+
   for (int i = 0; i < FDT_SIZE; i++)
   {
       if (i != 0 || i != 1 || i != 2)
@@ -304,6 +305,7 @@ thread_exit (void)
       }
   }
   free(t->fdt);
+
   t->parent->exit_status = t->exit_status;
   if( t-> by_exit != 1){
     t->parent->exit_status = -1 ;
