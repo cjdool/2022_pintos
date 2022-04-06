@@ -8,11 +8,13 @@
 #include "threads/interrupt.h"
 #include "threads/intr-stubs.h"
 #include "threads/palloc.h"
+#include "threads/malloc.h"
 #include "threads/switch.h"
 #include "threads/synch.h"
 #include "threads/vaddr.h"
 #ifdef USERPROG
 #include "userprog/process.h"
+#include "filesys/file.h"
 #endif
 
 /* Random value for struct thread's `magic' member.
@@ -298,7 +300,7 @@ thread_exit (void)
   {
       if (i != 0 || i != 1 || i != 2)
       {
-          close(i);
+          file_close(t->fdt[i]);
       }
   }
   free(t->fdt);
@@ -480,7 +482,7 @@ init_thread (struct thread *t, const char *name, int priority)
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
   t->magic = THREAD_MAGIC;
-  t->fdt = malloc(sizeof(struct file *)*FDT_SIZE);
+  t->fdt = (struct file **)malloc(sizeof(struct file *)*FDT_SIZE);
   t->next_fd = 3;
   t->wait_on =-1;
   list_init(&t->child_list);

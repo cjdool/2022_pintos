@@ -6,26 +6,12 @@
 #include "userprog/pagedir.h"
 #include "threads/vaddr.h"
 #include "devices/shutdown.h"
+#include "userprog/process.h"
+#include "filesys/filesys.h"
+#include "devices/input.h"
 
-typedef int pid_t;
-
+void get_argument(void *esp, void **arg, int count);
 void check_address(void *);
-void halt(void);
-void exit(int status);
-pid_t exec(const char *cmd_line);
-int wait(pid_t pid);
-bool create(const char *file, unsigned initial_size);
-bool remove(const char *file);
-int open(const char *file);
-int filesize(int fd);
-int read(int fd, void *buffer, unsigned size);
-int write(int fd, const void *buffer, unsigned size);
-void seek(int fd, unsigned position);
-unsigned tell(int fd);
-void close(int fd);
-void sigaction(int signum, void(*handler)(void));
-void sendsig(pid_t pid, int signum);
-void sched_yield(void);
 static void syscall_handler (struct intr_frame *);
 
 void
@@ -42,7 +28,7 @@ void get_argument(void *esp, void **arg, int count){
     void *sp = esp;
     for(i = 0 ; i<count; i++){
         sp += 4;
-        arg[i] = *(void *)sp;
+        arg[i] = sp;
     }
 }
 
@@ -167,7 +153,7 @@ int write(int fd, const void *buffer, unsigned size)
     {
         retval = (int)file_write(curfile, buffer, size);
     }
-    lock_release(&filsys_lock);
+    lock_release(&filesys_lock);
 
     return retval;
 }
@@ -233,7 +219,7 @@ syscall_handler (struct intr_frame *f )
         break;
     case SYS_EXIT :
         get_argument(sp, arg, 1);
-        exit(arg[0]);
+        exit((int)arg[0]);
         break;
     case SYS_EXEC :
         get_argument(sp, arg, 1);
@@ -241,7 +227,7 @@ syscall_handler (struct intr_frame *f )
         break;
     case SYS_WAIT :
         get_argument(sp, arg, 1);
-        f->eax = wait(arg[0]);
+        f->eax = wait((pid_t)arg[0]);
         break;
     case SYS_CREATE :
         get_argument(sp, arg, 2);
