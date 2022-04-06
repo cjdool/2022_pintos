@@ -106,7 +106,7 @@ struct thread
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
 
-    struct file **fdt;                  /* File Descriptor Table */
+    struct file *fdt[FDT_SIZE];         /* File Descriptor Table */
     int next_fd;                        /* Next file descriptor */
 
     struct thread * parent;             /* parent thread */

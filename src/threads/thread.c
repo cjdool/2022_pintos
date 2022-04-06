@@ -303,7 +303,6 @@ thread_exit (void)
           file_close(t->fdt[i]);
       }
   }
-  free(t->fdt);
 
   t->parent->exit_status = t->exit_status;
   if( t-> by_exit != 1){
@@ -483,7 +482,6 @@ init_thread (struct thread *t, const char *name, int priority)
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
   t->magic = THREAD_MAGIC;
-  t->fdt = (struct file **)malloc(sizeof(struct file *)*FDT_SIZE);
   t->next_fd = 3;
   t->wait_on =-1;
   list_init(&t->child_list);
