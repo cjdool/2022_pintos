@@ -122,7 +122,7 @@ process_execute (const char *file_name)
 
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy); 
-  if(thread_current()->load_status == 0 ){
+  if(child->load_status == 0 ){
         return -1;
   }
   return tid;
@@ -164,7 +164,7 @@ start_process (void *file_name_)
       //hex_dump(if_.esp, if_.esp, PHYS_BASE - if_.esp, true);
   }
 
-  t->parent->load_status = success;
+  t->load_status = success;
   sema_up(&t->load_sema);
 
   /* If load failed, quit. */
@@ -212,10 +212,7 @@ process_wait (tid_t child_tid )
             sema_down(&child->wait_sema); 
 
             //After child process terminates
-            status = t->exit_status;
-            if( child -> by_exit != 1){
-                status = -1 ;
-            }
+            status = child->exit_status;
             remove_child_process(child);
             t->wait_on = -1;
         }

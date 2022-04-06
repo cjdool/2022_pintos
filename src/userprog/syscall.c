@@ -9,6 +9,7 @@
 
 typedef int pid_t;
 
+void get_argument(void *, int *, int);
 void check_address(void *);
 void halt(void);
 void exit(int status);
@@ -35,14 +36,18 @@ syscall_init (void)
   intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
 }
 
-void get_argument(void *esp, void **arg, int count){
+void get_argument(void *esp, int *arg, int count){
     int i;
+    check_address(esp);
 
-    check_address((void *)esp);
-    void *sp = esp;
-    for(i = 0 ; i<count; i++){
-        sp += 4;
-        arg[i] = *(void *)sp;
+    if( count < 4){
+        void * sp = esp;
+        for(i = 0 ; i<count; i++){
+            sp += 4;
+            arg[i] = *(int *)sp;
+        }
+    }else {
+        exit(-1);
     }
 }
 
@@ -69,16 +74,14 @@ void exit(int status){
 
 pid_t exec(const char *cmd_line){
     pid_t pid;
-
     pid = process_execute(cmd_line);
-    
     return pid;
 }
 
 int wait(pid_t pid){
 
     int status ;
-    struct thread * child = get_child_process((int)pid);
+    struct thread *child = get_child_process((int)pid);
 
     status = process_wait((tid_t) pid); 
 
@@ -167,7 +170,7 @@ int write(int fd, const void *buffer, unsigned size)
     {
         retval = (int)file_write(curfile, buffer, size);
     }
-    lock_release(&filsys_lock);
+    lock_release(&filesys_lock);
 
     return retval;
 }
@@ -221,11 +224,10 @@ void sched_yield(void)
 static void
 syscall_handler (struct intr_frame *f ) 
 {
-    void *arg[3];
+    int arg[3];
     uint32_t *sp =f->esp;
     check_address((void*)sp);
     uint32_t number = *sp;
-  // printf("syscall number : %d\n",number);
   
   switch(number) {
     case SYS_HALT :

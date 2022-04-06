@@ -304,7 +304,7 @@ thread_exit (void)
   free(t->fdt);
   t->parent->exit_status = t->exit_status;
   if( t-> by_exit != 1){
-    t->parent->exit_status = -1 ;
+    t->exit_status = -1 ;
   }
   sema_up(&t->wait_sema);
   list_remove (&thread_current()->allelem);
