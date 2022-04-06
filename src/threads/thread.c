@@ -303,6 +303,7 @@ thread_exit (void)
           file_close(t->fdt[i]);
       }
   }
+  t->running_file = NULL;
 
   t->parent->exit_status = t->exit_status;
   if( t-> by_exit != 1){
