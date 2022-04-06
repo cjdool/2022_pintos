@@ -294,6 +294,14 @@ thread_exit (void)
      and schedule another process.  That process will destroy us
      when it calls thread_schedule_tail(). */
   intr_disable ();
+  for (int i = 0; i < FDT_SIZE; i++)
+  {
+      if (i != 0 || i != 1 || i != 2)
+      {
+          close(i);
+      }
+  }
+  free(t->fdt);
   t->parent->exit_status = t->exit_status;
   if( t-> by_exit != 1){
     t->parent->exit_status = -1 ;
@@ -472,6 +480,8 @@ init_thread (struct thread *t, const char *name, int priority)
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
   t->magic = THREAD_MAGIC;
+  t->fdt = malloc(sizeof(struct file *)*FDT_SIZE);
+  t->next_fd = 3;
   t->wait_on =-1;
   list_init(&t->child_list);
   sema_init(&t->wait_sema,0);
@@ -479,6 +489,7 @@ init_thread (struct thread *t, const char *name, int priority)
   t->exit_status = 0;
   t->load_status = 0;
   t->by_exit = 0;
+  t->running_file = NULL;
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);

@@ -26,6 +26,8 @@ typedef int tid_t;
 #define PRI_DEFAULT 31                  /* Default priority. */
 #define PRI_MAX 63                      /* Highest priority. */
 
+/* Thread file descriptor. */
+#define FDT_SIZE 64                     /* File Descriptor Table Size. */
 
 /* A kernel thread or user process.
 
@@ -104,20 +106,19 @@ struct thread
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
 
-  //  struct file fdt[64];                     /* File Descriptor Table */
-    int next_fd;                             /* Next file descriptor */
+    struct file **fdt;                  /* File Descriptor Table */
+    int next_fd;                        /* Next file descriptor */
 
     struct thread * parent;             /* parent thread */
     struct list child_list;             /* child thread list */
     struct list_elem child_elem;
-    struct semaphore wait_sema;   /* wait until child process exit */ 
-    struct semaphore load_sema;   /* wait until child process loaded */
+    struct semaphore wait_sema;         /* wait until child process exit */ 
+    struct semaphore load_sema;         /* wait until child process loaded */
     int wait_on;                        /* which pid thread waits on*/
-    int exit_status;                         /* Exit status */
-    int load_status;                         /* Load status */
-    int by_exit;                             /* exit by exit() system call */
-
-
+    int exit_status;                    /* Exit status */
+    int load_status;                    /* Load status */
+    int by_exit;                        /* exit by exit() system call */
+    struct file *running_file;          /* Running thread file */
   };
 
 /* If false (default), use round-robin scheduler.
