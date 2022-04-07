@@ -77,6 +77,11 @@ int wait(pid_t pid){
 bool create(const char *file, unsigned initial_size)
 {
     bool retval;
+    if (file == NULL)
+    {
+        exit(-1);
+    }
+    check_address((void *)file);
     lock_acquire(&filesys_lock);
     retval = filesys_create(file, initial_size);
     lock_release(&filesys_lock);
@@ -86,6 +91,11 @@ bool create(const char *file, unsigned initial_size)
 bool remove(const char *file)
 {
     bool retval;
+    if (file == NULL)
+    {
+        exit(-1);
+    }
+    check_address((void *)file);
     lock_acquire(&filesys_lock);
     retval = filesys_remove(file);
     lock_release(&filesys_lock);
@@ -95,13 +105,27 @@ bool remove(const char *file)
 int open(const char *file)
 {
     int fd;
+    struct file *retval;
     struct thread *cur = thread_current();
 
-    fd = cur->next_fd;
+    if (file == NULL)
+    {
+        exit(-1);
+    }
+    check_address((void *)file);
     lock_acquire(&filesys_lock);
-    cur->fdt[fd] = filesys_open(file);
-    lock_release(&filesys_lock);
+    retval = filesys_open(file);
+    if (retval != NULL)
+    {
+        fd = cur->next_fd;
+        cur->fdt[fd] = retval;
+    }
+    else
+    {
+        fd = -1;
+    }
     cur->next_fd++;
+    lock_release(&filesys_lock);
 
     return fd;
 }
@@ -112,6 +136,10 @@ int filesize(int fd)
     struct thread *cur = thread_current();
     struct file *curfile = cur->fdt[fd];
 
+    if (curfile == NULL)
+    {
+        exit(-1);
+    }
     lock_acquire(&filesys_lock);
     retval = (int)file_length(curfile);
     lock_release(&filesys_lock);
@@ -122,16 +150,27 @@ int filesize(int fd)
 int read(int fd, void *buffer, unsigned size)
 {
     struct thread *cur = thread_current();
-    struct file *curfile = cur->fdt[fd];
+    struct file *curfile;
     int retval = -1;
 
+    check_address((void *)buffer);
     lock_acquire(&filesys_lock);
     if (fd == 0)
     {
-        retval = (int)input_getc();
+        for (retval = 0; retval < size; retval++)
+        {
+            if(input_getc() == '\0')
+                break;
+        }
     }
-    else
+    else if (fd > 2)
     {
+        curfile = cur->fdt[fd];
+        if (curfile == NULL)
+        {
+            lock_release(&filesys_lock);
+            exit(-1);
+        }
         retval = (int)file_read(curfile, buffer, size);
     }
     lock_release(&filesys_lock);
@@ -142,17 +181,24 @@ int read(int fd, void *buffer, unsigned size)
 int write(int fd, const void *buffer, unsigned size)
 {
     struct thread *cur = thread_current();
-    struct file *curfile = cur->fdt[fd];
+    struct file *curfile;
     int retval = -1;
 
+    check_address((void *)buffer);
     lock_acquire(&filesys_lock);
     if (fd == 1)
     {
         putbuf(buffer, size);
         retval = size;
     }
-    else
+    else if (fd > 2)
     {
+        curfile = cur->fdt[fd];
+        if (curfile == NULL)
+        {
+            lock_release(&filesys_lock);
+            exit(-1);
+        }
         retval = (int)file_write(curfile, buffer, size);
     }
     lock_release(&filesys_lock);
@@ -164,7 +210,11 @@ void seek(int fd, unsigned position)
 {
     struct thread *cur = thread_current();
     struct file *curfile = cur->fdt[fd];
-   
+  
+    if (curfile == NULL)
+    {
+        exit(-1);
+    }
     lock_acquire(&filesys_lock);
     file_seek(curfile, position);
     lock_release(&filesys_lock);
@@ -176,6 +226,10 @@ unsigned tell(int fd)
     struct file *curfile = cur->fdt[fd];
     unsigned retval;
 
+    if (curfile == NULL)
+    {
+        exit(-1);
+    }
     lock_acquire(&filesys_lock);
     retval = (unsigned)file_tell(curfile);
     lock_release(&filesys_lock);
@@ -186,10 +240,14 @@ unsigned tell(int fd)
 void close(int fd)
 {
     struct thread *cur = thread_current();
-    struct file *curfile = cur->fdt[fd];
 
+    if (cur->fdt[fd] == NULL)
+    {
+        exit(-1);
+    }
     lock_acquire(&filesys_lock);
-    file_close(curfile);
+    file_close(cur->fdt[fd]);
+    cur->fdt[fd] = NULL;
     lock_release(&filesys_lock);
 }
 

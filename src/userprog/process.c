@@ -136,7 +136,7 @@ start_process (void *file_name_)
   char *file_name = file_name_;
   struct intr_frame if_;
   bool success;
-  char *argv[20]; // maximum argument count
+  char *argv[30]; // maximum argument count
   int argc = 0;
   char *token, *save_ptr;
 
