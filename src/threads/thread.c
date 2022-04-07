@@ -291,11 +291,11 @@ thread_exit (void)
   process_exit ();
 #endif
 
-  struct thread * t = thread_current();
   /* Remove thread from all threads list, set our status to dying,
      and schedule another process.  That process will destroy us
      when it calls thread_schedule_tail(). */
   intr_disable ();
+  struct thread * t = thread_current();
   for (int i = 3; i < FDT_SIZE; i++)
   {
       if (t->fdt[i] != NULL){

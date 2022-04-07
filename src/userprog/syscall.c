@@ -23,12 +23,12 @@ syscall_init (void)
 
 void get_argument(void *esp, int *arg, int count){
     int i;
-    check_address(esp);
 
     if( count < 4){
         void * sp = esp;
         for(i = 0 ; i<count; i++){
             sp += 4;
+            check_address(sp);
             arg[i] = *(int *)sp;
         }
     }else {
@@ -39,8 +39,18 @@ void get_argument(void *esp, int *arg, int count){
 void check_address(void *addr){
     struct thread * t = thread_current();
     uint32_t * pd = t->pagedir;
-    if(addr == NULL || !is_user_vaddr(addr) || pagedir_get_page(pd,addr) == NULL ){
-       exit(-1);
+    void* temp_addr = addr;
+    for( int i=0; i<4;i++){
+        temp_addr = temp_addr + i;
+        bool is_kernel = (int)is_kernel_vaddr(temp_addr);
+        if(temp_addr == NULL || is_kernel || temp_addr < (void*)8048000){
+           exit(-1);
+        } 
+        if( !is_kernel){
+            if(pagedir_get_page(pd,temp_addr) == NULL){
+                exit(-1);
+            }
+        }
     }
 }
 
@@ -66,7 +76,7 @@ pid_t exec(const char *cmd_line){
 int wait(pid_t pid){
 
     int status ;
-    struct thread *child = get_child_process((int)pid);
+//    struct thread *child = get_child_process((int)pid);
 
     status = process_wait((tid_t) pid); 
 
