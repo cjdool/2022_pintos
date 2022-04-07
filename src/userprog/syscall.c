@@ -146,7 +146,7 @@ int filesize(int fd)
     struct thread *cur = thread_current();
     struct file *curfile = cur->fdt[fd];
 
-    if (curfile == NULL)
+    if (fd < 2 || fd > FDT_SIZE || curfile == NULL)
     {
         exit(-1);
     }
@@ -163,11 +163,15 @@ int read(int fd, void *buffer, unsigned size)
     struct file *curfile;
     int retval = -1;
 
+    if (fd < 0 || fd > FDT_SIZE)
+    {
+        exit(-1);
+    }
     check_address((void *)buffer);
     lock_acquire(&filesys_lock);
     if (fd == 0)
     {
-        for (retval = 0; retval < size; retval++)
+        for (retval = 0; (unsigned int)retval < size; retval++)
         {
             if(input_getc() == '\0')
                 break;
@@ -194,6 +198,10 @@ int write(int fd, const void *buffer, unsigned size)
     struct file *curfile;
     int retval = -1;
 
+    if (fd < 0 || fd > FDT_SIZE)
+    {
+        exit(-1);
+    }
     check_address((void *)buffer);
     lock_acquire(&filesys_lock);
     if (fd == 1)
@@ -221,7 +229,7 @@ void seek(int fd, unsigned position)
     struct thread *cur = thread_current();
     struct file *curfile = cur->fdt[fd];
   
-    if (curfile == NULL)
+    if (fd < 3 || fd > FDT_SIZE || curfile == NULL)
     {
         exit(-1);
     }
@@ -236,7 +244,7 @@ unsigned tell(int fd)
     struct file *curfile = cur->fdt[fd];
     unsigned retval;
 
-    if (curfile == NULL)
+    if (fd < 3 || fd > FDT_SIZE || curfile == NULL)
     {
         exit(-1);
     }
@@ -251,7 +259,7 @@ void close(int fd)
 {
     struct thread *cur = thread_current();
 
-    if (cur->fdt[fd] == NULL)
+    if (fd < 3 || fd > FDT_SIZE || cur->fdt[fd] == NULL)
     {
         exit(-1);
     }
