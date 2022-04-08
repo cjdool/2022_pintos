@@ -69,6 +69,7 @@ void exit(int status){
 
 pid_t exec(const char *cmd_line){
     pid_t pid;
+    check_address((void*)cmd_line);
     pid = process_execute(cmd_line);
     return pid;
 }
