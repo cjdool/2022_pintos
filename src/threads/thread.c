@@ -302,7 +302,7 @@ thread_exit (void)
           file_close(t->fdt[i]);
       }
   }
-  t->running_file = NULL;
+  //t->running_file = NULL;
 
   t->parent->exit_status = t->exit_status;
   if( t-> by_exit != 1){
@@ -494,7 +494,7 @@ init_thread (struct thread *t, const char *name, int priority)
   t->exit_status = 0;
   t->load_status = 0;
   t->by_exit = 0;
-  t->running_file = NULL;
+  //t->running_file = NULL;
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);

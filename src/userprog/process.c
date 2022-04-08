@@ -100,25 +100,22 @@ process_execute (const char *file_name)
 {
   char *fn_copy;
   char *fn_copy2;
+  char *save_ptr;
   tid_t tid;
 
   /* Make a copy of FILE_NAME.
      Otherwise there's a race between the caller and load(). */
   fn_copy = palloc_get_page (0);
-  if (fn_copy == NULL)
+  fn_copy2 = palloc_get_page (0);
+  if (fn_copy == NULL || fn_copy2 == NULL)
     return TID_ERROR;
   strlcpy (fn_copy, file_name, PGSIZE);
-
-  fn_copy2 = palloc_get_page (0);
-  if (fn_copy2 == NULL)
-    return TID_ERROR;
   strlcpy (fn_copy2, file_name, PGSIZE);
-  char *save_ptr;
-  char *fname; 
-  fname = strtok_r(fn_copy2," ", &save_ptr);
+
+  fn_copy2 = strtok_r(fn_copy2, " ", &save_ptr);
 
   /* Create a new thread to execute FILE_NAME. */
-  tid = thread_create (fname, PRI_DEFAULT, start_process, fn_copy);
+  tid = thread_create (fn_copy2, PRI_DEFAULT, start_process, fn_copy);
 
   struct thread * child = get_child_process(tid);
   if( child == NULL) {
@@ -127,8 +124,8 @@ process_execute (const char *file_name)
   sema_down(&child->load_sema);
 
   if (tid == TID_ERROR){
-    palloc_free_page (fn_copy);
     palloc_free_page (fn_copy2);
+    palloc_free_page (fn_copy);
   }
   if(child->load_status == 0 ){
         return -1;
@@ -365,7 +362,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
       printf ("load: %s: open failed\n", file_name);
       goto done; 
     }
-  t->running_file = file;
+  //t->running_file = file;
   file_deny_write(file);
 
   /* Read and verify executable header. */

@@ -1,5 +1,6 @@
 #include "userprog/syscall.h"
 #include <stdio.h>
+#include <string.h>
 #include <syscall-nr.h>
 #include "threads/interrupt.h"
 #include "threads/thread.h"
@@ -128,6 +129,11 @@ int open(const char *file)
     retval = filesys_open(file);
     if (retval != NULL)
     {
+        //if (cur->running_file == retval)
+        if (strcmp(cur->name, file) == 0)
+        {
+            file_deny_write(retval);
+        }
         fd = cur->next_fd;
         cur->fdt[fd] = retval;
     }
@@ -217,6 +223,10 @@ int write(int fd, const void *buffer, unsigned size)
         {
             lock_release(&filesys_lock);
             exit(-1);
+        }
+        if (curfile->deny_write)
+        {
+            file_deny_write(curfile);
         }
         retval = (int)file_write(curfile, buffer, size);
     }
