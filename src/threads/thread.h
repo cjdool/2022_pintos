@@ -28,6 +28,7 @@ typedef int tid_t;
 
 /* Thread file descriptor. */
 #define FDT_SIZE 64                     /* File Descriptor Table Size. */
+#define SIG_MAX 10
 
 /* A kernel thread or user process.
 
@@ -85,6 +86,12 @@ typedef int tid_t;
    only because they are mutually exclusive: only a thread in the
    ready state is on the run queue, whereas only a thread in the
    blocked state is on a semaphore wait list. */
+
+struct sig {
+    int num;
+    void * sighandler;
+};
+
 struct thread
   {
     /* Owned by thread.c. */
@@ -103,9 +110,6 @@ struct thread
     uint32_t *pagedir;                  /* Page directory. */
 #endif
 
-    /* Owned by thread.c. */
-    unsigned magic;                     /* Detects stack overflow. */
-
     struct file *fdt[FDT_SIZE];         /* File Descriptor Table */
     int next_fd;                        /* Next file descriptor */
 
@@ -118,8 +122,14 @@ struct thread
     int exit_status;                    /* Exit status */
     int load_status;                    /* Load status */
     int by_exit;                        /* exit by exit() system call */
-    //struct file *running_file;          /* Running thread file */
+    struct file *running_file;          /* Running thread file */
+
+    struct sig sig[SIG_MAX];     /* Table for signal handling */
+    /* Owned by thread.c. */
+    unsigned magic;                     /* Detects stack overflow. */
+
   };
+
 
 /* If false (default), use round-robin scheduler.
    If true, use multi-level feedback queue scheduler.
@@ -137,6 +147,7 @@ tid_t thread_create (const char *name, int priority, thread_func *, void *);
 
 void thread_block (void);
 void thread_unblock (struct thread *);
+struct thread *find_thread(tid_t);
 
 struct thread *thread_current (void);
 tid_t thread_tid (void);

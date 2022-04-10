@@ -280,18 +280,25 @@ void close(int fd)
     lock_release(&filesys_lock);
 }
 
-/*void sigaction(int signum, void(*handler)(void))
+void sigaction(int signum, void(*handler)(void))
 {
+    struct thread *t = thread_current();
 
+    t->sig[signum].num = signum;
+    t->sig[signum].sighandler = handler ;
 }
 void sendsig(pid_t pid, int signum)
 {
+   struct thread *t= find_thread((tid_t)pid);
+   if( t->sig[signum].num == signum){
+        printf("Signum: %d, Action: 0x%x\n",signum,t->sig[signum].sighandler);
+   }
 
 }
 void sched_yield(void)
 {
-
-}*/
+    thread_yield();
+}
 
 static void
 syscall_handler (struct intr_frame *f ) 
@@ -354,10 +361,15 @@ syscall_handler (struct intr_frame *f )
         close((int)arg[0]);
         break;
     case SYS_SIGACTION :
+        get_argument(sp,arg,2);
+        sigaction((int)arg[0],(void*)arg[1]);
         break;
     case SYS_SENDSIG :
+        get_argument(sp,arg,2);
+        sendsig((pid_t)arg[0],(int)arg[1]);
         break;
     case SYS_YIELD :
+        sched_yield(); 
         break;
 
     /* Project 3 */

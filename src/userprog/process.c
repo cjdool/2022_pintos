@@ -36,17 +36,8 @@ struct thread * get_child_process(int pid){
 }
 
 void remove_child_process(struct thread * t){
-    
-  /*  struct thread * p = t->parent;
-    struct list_elem *e;
-    for( e =list_begin(&p->child_list);e!=list_end(&p->child_list);e =list_next(e)){
-        if( list_entry(e, struct thread, child_elem)->tid == t->tid){
-           list_remove(e); 
-        }
-    }*/
     list_remove(&t->child_elem);
     palloc_free_page(t);
-
 }
 
 void argument_stack(char **argv, int argc, void **esp)
@@ -123,8 +114,8 @@ process_execute (const char *file_name)
   }
   sema_down(&child->load_sema);
 
+  palloc_free_page (fn_copy2);
   if (tid == TID_ERROR){
-    palloc_free_page (fn_copy2);
     palloc_free_page (fn_copy);
   }
   if(child->load_status == 0 ){
