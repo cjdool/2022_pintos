@@ -303,12 +303,15 @@ thread_exit (void)
       }
   }
 
- // t->parent->exit_status = t->exit_status;
   if( t-> by_exit != 1){
-    t->exit_status = -1 ;
+      t->exit_status = -1 ;
   }
   sema_up(&t->wait_sema);
-  sema_down(&t->exit_sema);
+//  if( t-> parent !=NULL ){
+//    if(t->parent->wait_on == t->tid){
+        sema_down(&t->exit_sema);
+//    }
+//  }
   list_remove (&thread_current()->allelem);
   thread_current ()->status = THREAD_DYING;
   schedule ();
