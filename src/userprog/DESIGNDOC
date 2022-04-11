@@ -25,7 +25,7 @@ Dongeon Kim		 <dongeon97@kaist.ac.kr>
 
                ARGUMENT PASSING
                ================
-B24(6)1011
+
 ---- DATA STRUCTURES ----
 
 >> A1: Copy here the declaration of each new or changed `struct' or
@@ -56,15 +56,40 @@ B24(6)1011
 >> you arrange for the elements of argv[] to be in the right order?
 >> How do you avoid overflowing the stack page?
 
-   기본적으로는 strtok를 사용하여 구현했다. 
+   기본적으로는 핀토스에서 제공하는 strtok_r()을 사용하여 구현했다.
+   strtok_r의 delimiter로는 " "을 사용했다.
+   strtok_r의 반환값이 NULL이 나올때 까지 파싱을 진행했다.
+   각 token이 된 string들은 argv에 포인터 주소를 저장했다.
+   각 token마다 argc 값을 증가시켜서 숫자를 카운트했다.
+   
+   이후 argv, argc, esp를 argument_stack함수로 넘겨주어서 해당 값을
+   스택에 푸시했다.
+   스택 푸시과정은 handout에서 제공하는 구조에 맞추어 구현했다.
+   1) argv의 argument마다 스택위치를 옮기고, memcpy()를 진행한다.
+   2) word-align을 위해 padding을 넣는다.
+   3) argv의 저장위치를 저장한다.
+   4) argv의 주소값과 argc의 값을 저장한다.
+   5) 0으로 설정된 가짜 return address를 저장한다.
+
+   stack page overflow를 막기위해서 최대 argv 갯수를 30개로 제한했다.
+   argv가 30개를 넘으면 이후 page fault가 발생한다. 
 
 ---- RATIONALE ----
 
 >> A3: Why does Pintos implement strtok_r() but not strtok()?
 
+    strtok_r()는 strtok()에 조금의 변경을 가했다.
+    strtok()보다 1개의 파라미터를 더 줄 수 있는데, char** save_ptr을 줄 수 있다.
+    strtok_r()은 다음 token의 위치를 저장하여 save_ptr로 반환한다.
+    strtok은 이전 문자열을 기억하지만, strtok_r()은 save_ptr로 찾는 차이가 있다.
+    이 때문에, race conditon을 strtok_r()에서는 방지할 수 있다.
+
 >> A4: In Pintos, the kernel separates commands into a executable name
 >> and arguments.  In Unix-like systems, the shell does this
 >> separation.  Identify at least two advantages of the Unix approach.
+
+    UNIX 형식은 커널로 넘어오는 bad argument를 항상 방지 할 수 있기 때문에, 커널에서 
+    처리해야 되는 양이 줄어든다. 따라서 커널을 좀더 가볍게 만들 수 있다.
 
                  SYSTEM CALLS
                  ============
@@ -110,17 +135,29 @@ B24(6)1011
 >> Are file descriptors unique within the entire OS or just within a
 >> single process?
 
+    struct file *fdt[FDT_SIZE]를 통해서 열린 파일의 구조체를 관리한다.
+    fdt의 각 원소는 struct *file을 가지므로, 파일의 구조체의 주소값을 가진다.
+    각 open 시스템콜마다 해당 파일 구조체의 주소를 fdt에 저장하고, 각 close 시스템콜마다
+    해당 파일 구조체의 주소를 NULL로 처리한다.
+    또한 각 fdt는 thread 구조체 안에 있으므로, thread마다 독립적이다.
+    현재 구현에서는 thread가 process와 1대1 대응 되므로 프로세스마다 각각의
+    파일디스크립터 테이블(fdt)를 가진다.
+    또한 next_fd를 두어서 다음 빈 테이블 위치를 쉽게 찾을 수 있게 한다.
+
 ---- ALGORITHMS ----
 
 >> B3: Describe your code for reading and writing user data from the
 >> kernel.
 
+B4(6)
 >> B4: Suppose a system call causes a full page (4,096 bytes) of data
 >> to be copied from user space into the kernel.  What is the least
 >> and the greatest possible number of inspections of the page table
 >> (e.g. calls to pagedir_get_page()) that might result?  What about
 >> for a system call that only copies 2 bytes of data?  Is there room
 >> for improvement in these numbers, and how much?
+
+    
 
 >> B5: Briefly describe your implementation of the "wait" system call
 >> and how it interacts with process termination.
@@ -175,8 +212,14 @@ B24(6)1011
 >> B10: What advantages or disadvantages can you see to your design
 >> for file descriptors?
 
+   장점: next_fd를 증가하게만 구현하여, 탐색과정이 없어서 속도가 빠름
+
+   단점: next_fd가 최대 FD 갯수에 도달하면 더이상 파일을 할당하지 못함
+
 >> B11: The default tid_t to pid_t mapping is the identity mapping.
 >> If you changed it, what advantages are there to your approach?
+
+    tid_t와 pid_t의 1대1 맵핑을 바꾸지 않았습니다.
 
                SURVEY QUESTIONS
                ================
