@@ -1,4 +1,4 @@
-           +--------------------------+
+             +--------------------------+
              |          CS 140          |
              | PROJECT 2: USER PROGRAMS |
              |     DESIGN DOCUMENT      |
@@ -25,18 +25,38 @@ Dongeon Kim		 <dongeon97@kaist.ac.kr>
 
                ARGUMENT PASSING
                ================
-
+B24(6)1011
 ---- DATA STRUCTURES ----
 
 >> A1: Copy here the declaration of each new or changed `struct' or
 >> `struct' member, global or static variable, `typedef', or
 >> enumeration.  Identify the purpose of each in 25 words or less.
 
+    tid_t process_execute (const char *file_name)
+    {
+        char *fn_copy2;             /* copy of file name */
+        char *save_ptr;             /* saved pointer for strtok_r */
+    }
+
+    static void start_process (void *file_name_)
+    {
+        char *argv[30];             /* saved argmument list */
+        int argc = 0;               /* argument count */
+        char *token;                /* temp tokenized string */
+        char *save_ptr;             /* saved pointer for strtok_r */
+    }
+
+    void argument_stack(char **argv, int argc, void **esp)
+
+    /* push argmuents into stacks */
+
 ---- ALGORITHMS ----
 
 >> A2: Briefly describe how you implemented argument parsing.  How do
 >> you arrange for the elements of argv[] to be in the right order?
 >> How do you avoid overflowing the stack page?
+
+ 
 
 ---- RATIONALE ----
 
@@ -56,6 +76,8 @@ Dongeon Kim		 <dongeon97@kaist.ac.kr>
 >> enumeration.  Identify the purpose of each in 25 words or less.
 
   <threads/thread.h>
+
+    #define FDT_SIZE 128
 
     struct sig {
         int num;
@@ -78,7 +100,6 @@ Dongeon Kim		 <dongeon97@kaist.ac.kr>
         int exit_status;                    /* Exit status */
         int load_status;                    /* Load status */
         int by_exit;                        /* exit by exit() system call */
-        struct file *running_file;          /* Running thread file */
 
         struct sig sig[SIG_MAX];            /* Table for signal handling */
 
