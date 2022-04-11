@@ -123,7 +123,6 @@ struct thread
     int exit_status;                    /* Exit status */
     int load_status;                    /* Load status */
     int by_exit;                        /* exit by exit() system call */
-    struct file *running_file;          /* Running thread file */
 
     struct sig sig[SIG_MAX];     /* Table for signal handling */
     /* Owned by thread.c. */

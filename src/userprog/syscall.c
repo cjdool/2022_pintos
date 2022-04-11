@@ -129,7 +129,6 @@ int open(const char *file)
     retval = filesys_open(file);
     if (retval != NULL)
     {
-        //if (cur->running_file == retval)
         if (strcmp(cur->name, file) == 0)
         {
             file_deny_write(retval);
