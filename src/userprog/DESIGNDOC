@@ -102,8 +102,9 @@ Dongeon Kim		 <dongeon97@kaist.ac.kr>
 
   <threads/thread.h>
 
-    #define FDT_SIZE 128
-
+    #define FDT_SIZE 128                     /* File Descriptor Table Size. */
+    #define SIG_MAX 10
+    
     struct sig {
         int num;
         void * sighandler;
@@ -121,6 +122,7 @@ Dongeon Kim		 <dongeon97@kaist.ac.kr>
         struct list_elem child_elem;        /* child list element */
         struct semaphore wait_sema;         /* wait until child process exit */ 
         struct semaphore load_sema;         /* wait until child process loaded */
+        struct semaphore exit_sema;         /* wait until parent process get child's status */
         int wait_on;                        /* which pid thread waits on*/
         int exit_status;                    /* Exit status */
         int load_status;                    /* Load status */
@@ -149,7 +151,10 @@ Dongeon Kim		 <dongeon97@kaist.ac.kr>
 >> B3: Describe your code for reading and writing user data from the
 >> kernel.
 
-B4(6)
+    syscall.c 파일 내의 get_argument() 함수에서, user stack을 가리키는 esp로부터
+    system call parameter의 개수만큼 stack에서 data를 kernel로 가져옴
+    가져올 때 user address인지 check_address()함수를 통해 모두 check함
+
 >> B4: Suppose a system call causes a full page (4,096 bytes) of data
 >> to be copied from user space into the kernel.  What is the least
 >> and the greatest possible number of inspections of the page table
@@ -157,19 +162,33 @@ B4(6)
 >> for a system call that only copies 2 bytes of data?  Is there room
 >> for improvement in these numbers, and how much?
 
-    
+
 
 >> B5: Briefly describe your implementation of the "wait" system call
 >> and how it interacts with process termination.
+
+    parent process                  child process
+
+    process_wait(child_tid)
+        sema_down( &wait_sema )     ...
+                                    ...
+                                    thread_exit()
+                                        sema_up( &wait_sema)
+        ...                             sema_down( &exit_sema)
+        get child status
+        sema_up( &exit_sema)            ...
+                                        ...
+                                    
+                                    process terminate
+
 
     tid를 parameter로 받아서 process_wait()함수 실행
     tid가 음수이거나, 현재 process의 child가 아니거나, 이미 wait에 들어왔던 tid라면
     return -1을 함
     예외 조건이 아니면 semaphore를 이용해서 child process가 exit할 때까지 block된다
     child가 exit할 때 sema_up을 해주면서 process_wait이 다시 진행됨
-    이때 child process의 종료 상태를 확인해야하므로 thread_schedule_tail함수에 있던
-    palloc_free_page를 child의 종료상태를 가져온 후에 진행한다
-    child의 종료상태를 return
+    이때 child process의 종료 상태를 확인해야하므로 child를 sema_down을 통해 대기시키고 
+    child의 종료상태를 가져온 후에 sema_up을 해준다. child의 종료상태를 return함
 
 >> B6: Any access to user program memory at a user-specified address
 >> can fail due to a bad pointer value.  Such accesses must cause the
@@ -185,7 +204,12 @@ B4(6)
 >> paragraphs, describe the strategy or strategies you adopted for
 >> managing these issues.  Give an example.
 
----- SYNCHRONIZATION ----
+    system call을 실행할 때 user영역을 가리키는 esp 와 각 system call의 argument
+    개수만큼 data를 받아올 때 모두 valid address인지 check함
+    잘못된 영역을 참조했을 경우, exit(-1)을 실행하는데 exit system call에서
+    모든 resource를 free해줌 
+
+--- SYNCHRONIZATION ----
 
 >> B7: The "exec" system call returns -1 if loading the new executable
 >> fails, so it cannot return before the new executable has completed
@@ -204,10 +228,28 @@ B4(6)
 >> terminates without waiting, before C exits?  After C exits?  Are
 >> there any special cases?
 
+    - P calls wait(C) before C exits
+        semaphore를 사용해서 C가 종료할 때까지 P가 대기
+        race condition 없음, exit system call에서 모든 resource free해줌
+    
+    - P calls wait(C) after C exits
+        P의 childlist에 C가 없음 -> get_child_process(C) 함수 NULL return
+        wait() -> return -1, exit system call에서 모든 resource free해줌
+
+    - P terminates w/o waiting, before C exits
+        C의 parent가 없음 -> race condition 없음         
+        exit system call에서 모든 resource free해줌
+        
+    - P terminates w/o waiting, after C exits
+        위와 동일함
+        
 ---- RATIONALE ----
 
 >> B9: Why did you choose to implement access to user memory from the
 >> kernel in the way that you did?
+
+    불필요한 memory할당을 하지 않기 위해 page를 할당하여 user data를 받아오지 않고
+    kernel stack으로 직접 받아옴
 
 >> B10: What advantages or disadvantages can you see to your design
 >> for file descriptors?

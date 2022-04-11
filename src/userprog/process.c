@@ -40,7 +40,6 @@ void remove_child_process(struct thread * t){
     if(!list_empty(&t->parent->child_list)){
         list_remove(&t->child_elem);
     }
-//    palloc_free_page(t);
 }
 
 void argument_stack(char **argv, int argc, void **esp)
@@ -162,9 +161,11 @@ start_process (void *file_name_)
       if_.edi = argc;
       if_.esi = (uint32_t)if_.esp + sizeof(void *);
       //hex_dump(if_.esp, if_.esp, PHYS_BASE - if_.esp, true);
+      t->load_status = true;
+  }else{
+      t->load_status = false;
   }
 
-  t->load_status = success;
   sema_up(&t->load_sema);
 
   /* If load failed, quit. */
