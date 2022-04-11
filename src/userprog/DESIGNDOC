@@ -162,7 +162,14 @@ Dongeon Kim		 <dongeon97@kaist.ac.kr>
 >> for a system call that only copies 2 bytes of data?  Is there room
 >> for improvement in these numbers, and how much?
 
+   least number: 1~2번(페이지 단위로 읽을 때)
+   greatest number: 1024번(4바이트 단위로 읽을 때)
 
+   2byte case의 least number: 1~2번(페이지 단위로 읽을 때)
+   2byte case의 greatest number: 1번(4바이트 단위로 읽을 때)
+
+   요청 크기에 따라서, 4바이트 단위와 페이지 단위를 나누어서 실행
+   (kmalloc이 slab allocator와 buddy allocator를 사용하는 것 처럼)
 
 >> B5: Briefly describe your implementation of the "wait" system call
 >> and how it interacts with process termination.
@@ -208,6 +215,11 @@ Dongeon Kim		 <dongeon97@kaist.ac.kr>
     개수만큼 data를 받아올 때 모두 valid address인지 check함
     잘못된 영역을 참조했을 경우, exit(-1)을 실행하는데 exit system call에서
     모든 resource를 free해줌 
+
+    추후에 들어온 값들이 정상적인 값을 가지는 지 체크하는 부분을 각 시스템콜마다 구현했다.
+    open() 시스템콜의 경우 전달되는 파일포인터의 값이 NULL포인터인지 확인하고, read()나 
+    write() 시스템콜의 경우 넘어오는 fd가 정상적인 범위인지, buffer값의 주소영역은 정상적인지
+    다시 확인한다.
 
 --- SYNCHRONIZATION ----
 
