@@ -56,7 +56,7 @@ B24(6)1011
 >> you arrange for the elements of argv[] to be in the right order?
 >> How do you avoid overflowing the stack page?
 
- 
+   기본적으로는 strtok를 사용하여 구현했다. 
 
 ---- RATIONALE ----
 
