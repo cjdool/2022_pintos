@@ -27,8 +27,9 @@ struct thread * get_child_process(int pid){
     struct list_elem *e;
 
     for (e = list_begin (&t->child_list); e != list_end (&t->child_list); e = list_next (e)){
-        if( list_entry(e, struct thread, child_elem)->tid == pid ){
-            return list_entry(e, struct thread, child_elem);
+        struct thread *child = list_entry(e, struct thread, child_elem);
+        if( child->tid == pid ){
+            return child;
         }
     }
 
@@ -36,8 +37,10 @@ struct thread * get_child_process(int pid){
 }
 
 void remove_child_process(struct thread * t){
-    list_remove(&t->child_elem);
-    palloc_free_page(t);
+    if(!list_empty(&t->parent->child_list)){
+        list_remove(&t->child_elem);
+    }
+//    palloc_free_page(t);
 }
 
 void argument_stack(char **argv, int argc, void **esp)
@@ -119,6 +122,7 @@ process_execute (const char *file_name)
     palloc_free_page (fn_copy);
   }
   if(child->load_status == 0 ){
+        remove_child_process(child);
         return -1;
   }
   return tid;
@@ -194,8 +198,6 @@ process_wait (tid_t child_tid )
     struct thread * t = thread_current();
     int status ;
 
-//    while(true);
-
     if( child_tid < 0) { //execute fails
         return -1 ;
 
@@ -211,6 +213,7 @@ process_wait (tid_t child_tid )
             status = child->exit_status;
             remove_child_process(child);
             t->wait_on = -1;
+            sema_up(&child->exit_sema);
         }
     }
   return status;

@@ -304,11 +304,12 @@ thread_exit (void)
   }
   //t->running_file = NULL;
 
-  t->parent->exit_status = t->exit_status;
+ // t->parent->exit_status = t->exit_status;
   if( t-> by_exit != 1){
     t->exit_status = -1 ;
   }
   sema_up(&t->wait_sema);
+  sema_down(&t->exit_sema);
   list_remove (&thread_current()->allelem);
   thread_current ()->status = THREAD_DYING;
   schedule ();
@@ -491,6 +492,7 @@ init_thread (struct thread *t, const char *name, int priority)
   list_init(&t->child_list);
   sema_init(&t->wait_sema,0);
   sema_init(&t->load_sema,0);
+  sema_init(&t->exit_sema,0);
   t->exit_status = 0;
   t->load_status = 0;
   t->by_exit = 0;
@@ -581,7 +583,7 @@ thread_schedule_tail (struct thread *prev)
   if (prev != NULL && prev->status == THREAD_DYING && prev != initial_thread) 
     {
       ASSERT (prev != cur);
-//      palloc_free_page (prev);
+      palloc_free_page (prev);
     }
 }
 

@@ -135,6 +135,9 @@ int open(const char *file)
             file_deny_write(retval);
         }
         fd = cur->next_fd;
+        if(fd>FDT_SIZE){
+            return -1;
+        }
         cur->fdt[fd] = retval;
     }
     else

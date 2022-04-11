@@ -27,7 +27,7 @@ typedef int tid_t;
 #define PRI_MAX 63                      /* Highest priority. */
 
 /* Thread file descriptor. */
-#define FDT_SIZE 64                     /* File Descriptor Table Size. */
+#define FDT_SIZE 128                     /* File Descriptor Table Size. */
 #define SIG_MAX 10
 
 /* A kernel thread or user process.
@@ -118,6 +118,7 @@ struct thread
     struct list_elem child_elem;
     struct semaphore wait_sema;         /* wait until child process exit */ 
     struct semaphore load_sema;         /* wait until child process loaded */
+    struct semaphore exit_sema;
     int wait_on;                        /* which pid thread waits on*/
     int exit_status;                    /* Exit status */
     int load_status;                    /* Load status */
