@@ -6,6 +6,8 @@
 #include <list.h>
 #include "threads/vaddr.h"
 #include "threads/malloc.h"
+#include "userprog/syscall.h"
+#include "userprog/pagedir.h"
 
 
 static bool vm_less_func(const struct hash_elem *a, const struct hash_elem *b, void* aux UNUSED){
@@ -76,6 +78,46 @@ void vm_destroy(struct hash *vm){
 }
 
 
+void do_munmap(struct mmap_file * mmfile){
+    
+   struct vm_entry *vme;
+
+   while( !list_empty(&mmfile->vme_list)){
+        
+        vme = list_entry(list_pop_front(&mmfile->vme_list), struct vm_entry, mmap_elem);
+
+        if(vme->is_loaded && pagedir_is_dirty(thread_current()->pagedir, vme->vaddr)){
+           if(vme->read_bytes != (size_t)file_write_at(vme->file,vme->vaddr, vme->read_bytes,vme->offset)){
+                exit(-1);
+           }
+        }
+        delete_vme(&thread_current()->vm, vme);
+        free(vme);
+
+   }
+
+   list_remove(&mmfile->elem);
+   file_close(mmfile->file);
+   free(mmfile);
+
+
+
+}
+
+void all_munmap(void){
+    
+   struct list_elem *e;
+   struct mmap_file *mmfile;
+   struct list mmap_list = thread_current()->mmap_list;
+
+   for( e = list_begin(&mmap_list); e != list_end(&mmap_list); e = list_next(e)){
+        
+        mmfile= list_entry(e, struct mmap_file, elem);
+        do_munmap(mmfile);
+        
+    }
+   
+}
 
 
 

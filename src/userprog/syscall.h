@@ -5,8 +5,14 @@
 struct lock filesys_lock;
 
 typedef int pid_t;
+typedef int mapid_t;
 
 struct lock filesys_lock;
+
+void get_argument(void *esp, int *arg, int count);
+struct vm_entry * check_address(void *);
+void check_valid_buffer(void*, unsigned, bool);
+void check_valid_string(const void *);
 
 void syscall_init (void);
 void halt(void);
@@ -25,5 +31,7 @@ void close(int fd);
 void sigaction(int signum, void(*handler)(void));
 void sendsig(pid_t pid, int signum);
 void sched_yield(void);
+int mmap(int, void*);
+void munmap(mapid_t);
 
 #endif /* userprog/syscall.h */

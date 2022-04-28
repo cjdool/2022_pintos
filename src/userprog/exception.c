@@ -5,12 +5,18 @@
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 #include "userprog/syscall.h"
+#include "vm/page.h"
+#include "threads/palloc.h"
+#include "userprog/process.h"
+#include <string.h>
 
 /* Number of page faults processed. */
 static long long page_fault_cnt;
 
 static void kill (struct intr_frame *);
 static void page_fault (struct intr_frame *);
+bool handle_mm_fault(struct vm_entry *);
+bool load_file(void *, struct vm_entry *);
 
 /* Registers handlers for interrupts that can be caused by user
    programs.
@@ -152,12 +158,85 @@ page_fault (struct intr_frame *f)
   /* To implement virtual memory, delete the rest of the function
      body, and replace it with code that brings in the page to
      which fault_addr refers. */
-  printf ("Page fault at %p: %s error %s page in %s context.\n",
+/*  printf ("Page fault at %p: %s error %s page in %s context.\n",
           fault_addr,
           not_present ? "not present" : "rights violation",
           write ? "writing" : "reading",
           user ? "user" : "kernel");
   exit(-1);
   kill (f);
+*/
+  
+  struct vm_entry * vme ;
+  if( not_present == 0 ){  // writing r/o page -> fault 
+        exit(-1);
+        kill(f);
+  }else{
+      if((vme = find_vme(fault_addr)) == NULL){
+        exit(-1);
+      }else{ 
+        if(!handle_mm_fault(vme)){
+            exit(-1);
+        }
+      }
+
+  }
+
 }
 
+bool handle_mm_fault(struct vm_entry *vme){
+    uint8_t *kpage = palloc_get_page(PAL_USER);
+    bool success = false;
+    uint8_t type = vme->type;
+    if(kpage == NULL)
+        return false;
+    if(type == VM_BIN){
+        success = load_file(kpage, vme);
+        if(success){
+            
+          if (!install_page (vme->vaddr, kpage, vme->writable)) 
+            {
+              palloc_free_page (kpage);
+              return false; 
+            }
+        }else{
+            palloc_free_page(kpage);
+            return false;
+        }
+    }else if(type == VM_FILE){
+        success = load_file(kpage, vme);
+        if(success){
+            
+          if (!install_page (vme->vaddr, kpage, vme->writable)) 
+            {
+              palloc_free_page (kpage);
+              return false; 
+            }
+        }else{
+            palloc_free_page(kpage);
+            return false;
+        }
+
+    }else if(type == VM_ANON){
+
+    }else{
+        return false;
+    }
+
+
+    return success;
+}
+
+bool load_file(void* kaddr, struct vm_entry * vme){
+
+    file_seek(vme->file, vme->offset);
+
+    if(file_read(vme->file, kaddr, vme->read_bytes) != (int)vme->read_bytes){
+        return false;
+    }
+    memset(kaddr+vme->read_bytes, 0, vme->zero_bytes);
+    
+    vme->is_loaded = true;
+
+    return true;
+}

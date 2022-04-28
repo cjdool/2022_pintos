@@ -10,9 +10,11 @@
 #include "userprog/process.h"
 #include "filesys/filesys.h"
 #include "devices/input.h"
+#include "vm/page.h"
+#include "threads/malloc.h"
 
 void get_argument(void *esp, int *arg, int count);
-void check_address(void *);
+struct vm_entry * check_address(void *);
 static void syscall_handler (struct intr_frame *);
 
 void
@@ -37,9 +39,9 @@ void get_argument(void *esp, int *arg, int count){
     }
 }
 
-void check_address(void *addr){
-    struct thread * t = thread_current();
-    uint32_t * pd = t->pagedir;
+struct vm_entry * check_address(void *addr){
+    //struct thread * t = thread_current();
+    //uint32_t * pd = t->pagedir;
     void* temp_addr = addr;
     for( int i=0; i<4;i++){
         temp_addr = temp_addr + i;
@@ -47,13 +49,50 @@ void check_address(void *addr){
         if(temp_addr == NULL || is_kernel || temp_addr < (void*)8048000){
            exit(-1);
         } 
-        if( !is_kernel){
+       /* if( !is_kernel){
             if(pagedir_get_page(pd,temp_addr) == NULL){
                 exit(-1);
             }
+        
         }
+        */
+    }
+    
+   struct vm_entry * vme = find_vme(addr); 
+   return vme;
+}
+
+void check_valid_buffer(void * buffer, unsigned size, bool to_write){
+    void* addr = pg_round_down(buffer);
+    struct vm_entry * vme;
+    int tempsize = (int)size;    
+    while( tempsize > 0){
+            
+        vme = check_address(addr);
+        
+        if(vme == NULL){
+            exit(-1);
+        }
+        if(to_write == 1 && vme->writable==0){
+            exit(-1);
+        }
+
+        addr += PGSIZE;
+        tempsize -= PGSIZE;
     }
 }
+
+void check_valid_string(const void *str){
+
+    struct vm_entry *vme = check_address((void*)str);
+    if(vme ==NULL){
+        exit(-1);
+    }
+
+}
+
+
+
 
 void halt(void){
     shutdown_power_off();
@@ -78,7 +117,6 @@ pid_t exec(const char *cmd_line){
 int wait(pid_t pid){
 
     int status ;
-//    struct thread *child = get_child_process((int)pid);
 
     status = process_wait((tid_t) pid); 
 
@@ -302,6 +340,88 @@ void sched_yield(void)
     thread_yield();
 }
 
+int mmap(int fd, void *addr){
+
+    int mapid ;
+    struct vm_entry * found_vme;
+    struct file* file;
+    size_t offset = 0;
+
+    if (fd < 2 || fd > FDT_SIZE)
+    {
+        return -1;
+    }
+    if( (int)addr % PGSIZE !=0 || addr == 0){
+        return -1;
+    }
+    //page_addr = pg_round_down(addr);  addr should be page-aligned
+    if((found_vme = check_address(addr))==NULL){
+        return -1;
+    }
+
+    if((file = process_get_file(fd))==NULL){
+        return -1;
+    }
+
+    file = file_reopen(file);
+    int size = (int)file_length(file);
+    if(size == 0){
+        return -1;
+    }
+    struct mmap_file * mmfile = (struct mmap_file *)malloc(sizeof(struct mmap_file));
+    if( mmfile == NULL){
+        return -1;
+    }
+    mmfile->mapid = thread_current()->mapid;
+    mmfile->file = file;
+    list_init(&mmfile->vme_list);
+    list_push_back(&thread_current()->mmap_list, &mmfile->elem);
+    
+    while(size >0){
+            
+        size_t page_read_bytes = page_read_bytes < PGSIZE ? page_read_bytes : PGSIZE;
+        size_t page_zero_bytes = PGSIZE - page_read_bytes;
+        
+        struct vm_entry * vme = (struct vm_entry*)malloc(sizeof(struct vm_entry));
+        vme->type = VM_FILE;
+        vme->vaddr = addr;
+        vme->writable = true;
+        vme->is_loaded= false;
+        vme->file = file;
+        vme->offset = offset;
+        vme->read_bytes = page_read_bytes;
+        vme->zero_bytes = page_zero_bytes;
+
+        list_push_back(&mmfile->vme_list, &vme->mmap_elem);
+        insert_vme(&thread_current()->vm, vme);
+        
+        size -= PGSIZE;
+        offset += PGSIZE;
+        page_read_bytes -= page_read_bytes;
+        page_zero_bytes -= page_zero_bytes;
+
+    }
+    mapid = thread_current()->mapid++;
+    return mapid;
+}
+
+void munmap(mapid_t mapid){
+   struct list_elem *e;
+   struct mmap_file *mmfile;
+   struct list mmap_list = thread_current()->mmap_list;
+
+   for( e = list_begin(&mmap_list); e != list_end(&mmap_list); e = list_next(e)){
+        
+        mmfile= list_entry(e, struct mmap_file, elem);
+        
+        if( mmfile-> mapid == mapid){
+            do_munmap(mmfile);
+            return;
+        }
+   }
+}
+
+
 static void
 syscall_handler (struct intr_frame *f ) 
 {
@@ -320,6 +440,7 @@ syscall_handler (struct intr_frame *f )
         break;
     case SYS_EXEC :
         get_argument(sp, arg, 1);
+        check_valid_string((const void *)arg[0]);
         f->eax = exec((const char *)arg[0]);
         break;
     case SYS_WAIT :
@@ -344,10 +465,12 @@ syscall_handler (struct intr_frame *f )
         break;
     case SYS_READ :
         get_argument(sp, arg, 3);
+        check_valid_buffer((void*)arg[1],(unsigned)arg[2],0);
         f->eax = read((int)arg[0], (void *)arg[1], (unsigned)arg[2]);
         break;
     case SYS_WRITE :
         get_argument(sp, arg, 3);
+        check_valid_buffer((void*)arg[1],(unsigned)arg[2],1);
         f->eax = write((int)arg[0], (const void *)arg[1], (unsigned)arg[2]);
         break;
     case SYS_SEEK :
@@ -376,6 +499,8 @@ syscall_handler (struct intr_frame *f )
 
     /* Project 3 */
     case SYS_MMAP :
+        get_argument(sp,arg,2);
+        mmap((int)arg[0],(void*)arg[1]);
         break;
     case SYS_MUNMAP :
         break;

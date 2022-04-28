@@ -6,6 +6,7 @@
 #include <stdint.h>
 #include <filesys/file.h>
 #include <threads/synch.h>
+#include <lib/kernel/hash.h>
 
 /* States in a thread's life cycle. */
 enum thread_status
@@ -125,8 +126,12 @@ struct thread
     int by_exit;                        /* exit by exit() system call */
 
     struct sig sig[SIG_MAX];     /* Table for signal handling */
+    struct hash vm;
+    struct list mmap_list;
+    int mapid;
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
+
 
   };
 
