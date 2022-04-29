@@ -77,7 +77,7 @@ void try_to_free_pages(enum palloc_flags flags){
 
 struct page* alloc_page(enum palloc_flags flags){
     struct page *page;
-    lock_acquire(&lru_list_lock);
+   // lock_acquire(&lru_list_lock);
     void *kaddr = palloc_get_page(flags);
     while (kaddr == NULL)
     {
@@ -88,7 +88,7 @@ struct page* alloc_page(enum palloc_flags flags){
     page->kaddr = kaddr;
     page->thread = thread_current();
     add_page_to_lru_list(page);
-    lock_release(&lru_list_lock);
+   // lock_release(&lru_list_lock);
     return page;
 }
 
