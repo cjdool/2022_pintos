@@ -2,8 +2,14 @@
 #include "threads/synch.h"
 #include "threads/thread.h"
 #include "threads/malloc.h"
+#include "threads/vaddr.h"
+#include "userprog/pagedir.h"
 #include "vm/swap.h"
 #include "filesys/file.h"
+
+
+
+static struct list_elem* get_next_lru_clock(void);
 
 void lru_list_init(void){
     list_init(&lru_list);
@@ -18,7 +24,7 @@ void add_page_to_lru_list(struct page* page){
 }
 
 void del_page_from_lru_list(struct page* page){
-    if (lru_list == &page->lru){
+    if (lru_clock == &page->lru){
         lru_clock = list_next(lru_clock);
     }
     list_remove (&page->lru);
@@ -78,7 +84,7 @@ void try_to_free_pages(enum palloc_flags flags){
     victim->vme->is_loaded = false;
 
     //free page
-    _free_page(victim);
+    __free_page(victim);
 }
 
 void __free_page(struct page* page){
@@ -103,12 +109,12 @@ void free_page(void *kaddr){
         }
     }
     if (page != NULL)
-        _free_page(page);
+        __free_page(page);
 
     lock_release(&lru_list_lock);
 }
 
-static struct list_elem* get_next_lru_clock(){
+static struct list_elem* get_next_lru_clock(void){
     struct list_elem *retval;
 
     if (list_empty(&lru_list)){

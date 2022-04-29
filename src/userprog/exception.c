@@ -9,6 +9,8 @@
 #include "threads/palloc.h"
 #include "userprog/process.h"
 #include <string.h>
+#include "vm/frame.h"
+#include "vm/swap.h"
 
 /* Number of page faults processed. */
 static long long page_fault_cnt;
@@ -187,7 +189,9 @@ page_fault (struct intr_frame *f)
 }
 
 bool handle_mm_fault(struct vm_entry *vme){
-    uint8_t *kpage = palloc_get_page(PAL_USER);
+    struct page* page = alloc_page(PAL_USER);
+    uint8_t *kpage = page->kaddr;
+    page->vme = vme;
     bool success = false;
     uint8_t type = vme->type;
 
@@ -196,7 +200,7 @@ bool handle_mm_fault(struct vm_entry *vme){
     if(type == VM_BIN || type == VM_FILE){
         success = load_file(kpage, vme);
     }else if(type == VM_ANON){
-
+        swap_in(vme->swap_slot, kpage);
     }else{
         return false;
     }
@@ -204,11 +208,11 @@ bool handle_mm_fault(struct vm_entry *vme){
     if(success){
       if (!install_page (vme->vaddr, kpage, vme->writable)) 
         {
-          palloc_free_page (kpage);
+          free_page (page);
           return false; 
         }
     }else{
-        palloc_free_page(kpage);
+        free_page(page);
         return false;
     }
 

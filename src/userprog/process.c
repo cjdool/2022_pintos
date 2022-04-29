@@ -18,6 +18,8 @@
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 #include "vm/page.h"
+#include "vm/frame.h"
+#include "vm/swap.h"
 #include "threads/malloc.h"
 
 static thread_func start_process NO_RETURN;
@@ -573,16 +575,19 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 static bool
 setup_stack (void **esp) 
 {
+    struct page* page;
   uint8_t *kpage;
   bool success = false;
 
-  kpage = palloc_get_page (PAL_USER | PAL_ZERO);
-  if (kpage != NULL) 
+  page = alloc_page (PAL_USER | PAL_ZERO);
+  
+  if (page != NULL) 
     {
-      success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
+      success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, page->kaddr, true);
       if (success){
         *esp = PHYS_BASE;
           struct vm_entry *vme = (struct vm_entry *)malloc(sizeof(struct vm_entry));
+          page->vme = vme;
           vme->type = VM_ANON;
           vme->vaddr = ((uint8_t *) PHYS_BASE) - PGSIZE;
           vme->writable = true;
@@ -596,7 +601,7 @@ setup_stack (void **esp)
           insert_vme(&thread_current()->vm, vme); 
       }
       else
-        palloc_free_page (kpage);
+        free_page (page);
     }
 
   return success;

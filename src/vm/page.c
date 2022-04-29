@@ -9,6 +9,7 @@
 #include "userprog/syscall.h"
 #include "userprog/pagedir.h"
 #include "threads/palloc.h"
+#include "vm/frame.h"
 
 
 static bool vm_less_func(const struct hash_elem *a, const struct hash_elem *b, void* aux UNUSED){
@@ -30,9 +31,9 @@ void vm_action_func(struct hash_elem *e, void *aux UNUSED){
     
     struct vm_entry* vme = hash_entry(e, struct vm_entry, elem);
     
-    palloc_free_page(pagedir_get_page(thread_current()->pagedir, vme->vaddr));
-    pagedir_clear_page(thread_current()->pagedir, vme->vaddr);
-
+   // palloc_free_page(pagedir_get_page(thread_current()->pagedir, vme->vaddr));
+   // pagedir_clear_page(thread_current()->pagedir, vme->vaddr);
+    free_page(vme->vaddr);
     free(vme);
 
 }
@@ -56,8 +57,9 @@ bool delete_vme(struct hash *vm, struct vm_entry *vme){
   
     if( hash_delete(vm, &vme->elem) == NULL ){
 
-        palloc_free_page(pagedir_get_page(thread_current()->pagedir, vme->vaddr));
-        pagedir_clear_page(thread_current()->pagedir, vme->vaddr);
+        free_page(vme->vaddr);
+       // palloc_free_page(pagedir_get_page(thread_current()->pagedir, vme->vaddr));
+       // pagedir_clear_page(thread_current()->pagedir, vme->vaddr);
         free(vme);
 
         return true;

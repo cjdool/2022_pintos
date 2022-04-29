@@ -1,8 +1,10 @@
 #include "vm/swap.h"
 #include "devices/block.h"
-#define BLOCK_PER_PAGE = PGSIZE/BLOCK_SECTOR_SIZE;
+#include "threads/vaddr.h"
 
-void swap_init(){
+#define BLOCK_PER_PAGE  PGSIZE/BLOCK_SECTOR_SIZE
+
+void swap_init(void){
     struct block *swap_slot = block_get_role(BLOCK_SWAP);
     swap_bitmap = bitmap_create(block_size(swap_slot)/BLOCK_PER_PAGE);
     lock_init(&swap_lock);
