@@ -1,0 +1,51 @@
+userprog/process.c:549:      vme->type = VM_BIN;
+userprog/process.c:550:      vme->vaddr = upage;
+userprog/process.c:551:      vme->writable = writable;
+userprog/process.c:552:      vme->is_loaded = false;
+userprog/process.c:553:      vme->file = file_reopen(file);
+userprog/process.c:554:      vme->offset = ofs;
+userprog/process.c:555:      vme->read_bytes = page_read_bytes;
+userprog/process.c:556:      vme->zero_bytes = page_zero_bytes;
+userprog/process.c:589:  vme->type = VM_ANON;
+userprog/process.c:590:  vme->vaddr = ((uint8_t *) PHYS_BASE) - PGSIZE;
+userprog/process.c:591:  vme->writable = true;
+userprog/process.c:592:  vme->is_loaded = true;
+userprog/process.c:593:  vme->file = NULL;
+userprog/process.c:594:  vme->offset = 0;
+userprog/process.c:595:  vme->read_bytes = 0;
+userprog/process.c:596:  vme->zero_bytes = 0;
+Binary file userprog/.syscall.c.swp matches
+userprog/exception.c:190:    uint8_t type = vme->type;
+userprog/exception.c:197:          if (!install_page (vme->vaddr, kpage, vme->writable)) 
+userprog/exception.c:210:          if (!install_page (vme->vaddr, kpage, vme->writable)) 
+userprog/exception.c:232:    file_seek(vme->file, vme->offset);
+userprog/exception.c:234:    if(file_read(vme->file, kaddr, vme->read_bytes) != (int)vme->read_bytes){
+userprog/exception.c:237:    memset(kaddr+vme->read_bytes, 0, vme->zero_bytes);
+userprog/exception.c:239:    vme->is_loaded = true;
+userprog/syscall.c:76:        if(to_write == 1 && vme->writable==0){
+userprog/syscall.c:386:        vme->type = VM_FILE;
+userprog/syscall.c:387:        vme->vaddr = addr;
+userprog/syscall.c:388:        vme->writable = true;
+userprog/syscall.c:389:        vme->is_loaded= false;
+userprog/syscall.c:390:        vme->file = file;
+userprog/syscall.c:391:        vme->offset = offset;
+userprog/syscall.c:392:        vme->read_bytes = page_read_bytes;
+userprog/syscall.c:393:        vme->zero_bytes = page_zero_bytes;
+userprog/syscall.c:395:        list_push_back(&mmfile->vme_list, &vme->mmap_elem);
+vm/page.c:26:    return hash_int((int)vme->vaddr);
+vm/page.c:45:    if( hash_insert(vm, &vme->elem) == NULL){
+vm/page.c:54:    if( hash_delete(vm, &vme->elem) == NULL ){
+vm/page.c:90:        if(vme->is_loaded && pagedir_is_dirty(thread_current()->pagedir, vme->vaddr)){
+vm/page.c:91:           if(vme->read_bytes != (size_t)file_write_at(vme->file,vme->vaddr, vme->read_bytes,vme->offset)){
+vm/page.c:95:        palloc_free_page(pagedir_get_page(thread_current()->pagedir, vme->vaddr));
+vm/page.c:96:        pagedir_clear_page(thread_current()->pagedir, vme->vaddr);
+cscope.out:43200:, vme->
+cscope.out:43252:, vme->
+cscope.out:43312:, vme->
+cscope.out:43324:, vme->
+cscope.out:43326:) != ()vme->read_bytes){
+cscope.out:43340:, 0, vme->
+cscope.out:49894:, vme->
+cscope.out:49906:(vme->
+cscope.out:49908:,vme->
+Binary file cscope.out matches

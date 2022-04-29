@@ -241,6 +241,9 @@ process_exit (void)
   struct thread *cur = thread_current ();
   uint32_t *pd;
 
+  if(cur->mapid >0){
+    all_munmap();
+  }
   vm_destroy(&cur->vm);
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
@@ -533,7 +536,8 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
   ASSERT (ofs % PGSIZE == 0);
  
   struct vm_entry *vme;
-
+  struct file * vme_file = file_reopen(file);
+  thread_current()->binary_file = vme_file;
   while (read_bytes > 0 || zero_bytes > 0) 
     {
       /* Calculate how to fill this page.
@@ -547,7 +551,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       vme->vaddr = upage;
       vme->writable = writable;
       vme->is_loaded = false;
-      vme->file = file_reopen(file);
+      vme->file = vme_file;
       vme->offset = ofs;
       vme->read_bytes = page_read_bytes;
       vme->zero_bytes = page_zero_bytes;
@@ -577,22 +581,22 @@ setup_stack (void **esp)
       success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
       if (success){
         *esp = PHYS_BASE;
+          struct vm_entry *vme = (struct vm_entry *)malloc(sizeof(struct vm_entry));
+          vme->type = VM_ANON;
+          vme->vaddr = ((uint8_t *) PHYS_BASE) - PGSIZE;
+          vme->writable = true;
+          vme->is_loaded = true;
+          vme->file = NULL;
+          vme->offset = 0;
+          vme->read_bytes = 0;
+          vme->zero_bytes = 0;
+
+          insert_vme(&thread_current()->vm, vme); 
       }
       else
         palloc_free_page (kpage);
     }
 
-  struct vm_entry *vme = (struct vm_entry *)malloc(sizeof(struct vm_entry));
-  vme->type = VM_ANON;
-  vme->vaddr = ((uint8_t *) PHYS_BASE) - PGSIZE;
-  vme->writable = true;
-  vme->is_loaded = true;
-  vme->file = NULL;
-  vme->offset = 0;
-  vme->read_bytes = 0;
-  vme->zero_bytes = 0;
-
-  insert_vme(&thread_current()->vm, vme); 
 
   return success;
 }

@@ -171,16 +171,18 @@ page_fault (struct intr_frame *f)
   if( not_present == 0 ){  // writing r/o page -> fault 
         exit(-1);
         kill(f);
-  }else{
-      if((vme = find_vme(fault_addr)) == NULL){
-        exit(-1);
-      }else{ 
-        if(!handle_mm_fault(vme)){
-            exit(-1);
-        }
-      }
-
   }
+
+  if((vme = find_vme(fault_addr)) == NULL){
+    exit(-1);
+  }
+
+  if(!handle_mm_fault(vme)){
+    exit(-1);
+  }
+  
+
+  
 
 }
 
@@ -188,46 +190,39 @@ bool handle_mm_fault(struct vm_entry *vme){
     uint8_t *kpage = palloc_get_page(PAL_USER);
     bool success = false;
     uint8_t type = vme->type;
+
     if(kpage == NULL)
         return false;
-    if(type == VM_BIN){
+    if(type == VM_BIN || type == VM_FILE){
         success = load_file(kpage, vme);
-        if(success){
-            
-          if (!install_page (vme->vaddr, kpage, vme->writable)) 
-            {
-              palloc_free_page (kpage);
-              return false; 
-            }
-        }else{
-            palloc_free_page(kpage);
-            return false;
-        }
-    }else if(type == VM_FILE){
-        success = load_file(kpage, vme);
-        if(success){
-            
-          if (!install_page (vme->vaddr, kpage, vme->writable)) 
-            {
-              palloc_free_page (kpage);
-              return false; 
-            }
-        }else{
-            palloc_free_page(kpage);
-            return false;
-        }
-
     }else if(type == VM_ANON){
 
     }else{
         return false;
     }
 
+    if(success){
+      if (!install_page (vme->vaddr, kpage, vme->writable)) 
+        {
+          palloc_free_page (kpage);
+          return false; 
+        }
+    }else{
+        palloc_free_page(kpage);
+        return false;
+    }
 
     return success;
 }
 
 bool load_file(void* kaddr, struct vm_entry * vme){
+
+    bool file_lock = false;
+
+    if(!lock_held_by_current_thread(&filesys_lock)){
+        lock_acquire(&filesys_lock);
+        file_lock =true;
+    }
 
     file_seek(vme->file, vme->offset);
 
@@ -235,6 +230,10 @@ bool load_file(void* kaddr, struct vm_entry * vme){
         return false;
     }
     memset(kaddr+vme->read_bytes, 0, vme->zero_bytes);
+
+    if(file_lock){
+        lock_release(&filesys_lock);
+    }
     
     vme->is_loaded = true;
 

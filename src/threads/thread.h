@@ -127,6 +127,7 @@ struct thread
 
     struct sig sig[SIG_MAX];     /* Table for signal handling */
     struct hash vm;
+    struct file* binary_file;
     struct list mmap_list;
     int mapid;
     /* Owned by thread.c. */

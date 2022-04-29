@@ -8,6 +8,7 @@
 #include "threads/malloc.h"
 #include "userprog/syscall.h"
 #include "userprog/pagedir.h"
+#include "threads/palloc.h"
 
 
 static bool vm_less_func(const struct hash_elem *a, const struct hash_elem *b, void* aux UNUSED){
@@ -28,6 +29,9 @@ static unsigned vm_hash_func(const struct hash_elem *e, void* aux UNUSED){
 void vm_action_func(struct hash_elem *e, void *aux UNUSED){
     
     struct vm_entry* vme = hash_entry(e, struct vm_entry, elem);
+    
+    palloc_free_page(pagedir_get_page(thread_current()->pagedir, vme->vaddr));
+    pagedir_clear_page(thread_current()->pagedir, vme->vaddr);
 
     free(vme);
 
@@ -51,6 +55,11 @@ bool insert_vme(struct hash *vm, struct vm_entry *vme){
 bool delete_vme(struct hash *vm, struct vm_entry *vme){
   
     if( hash_delete(vm, &vme->elem) == NULL ){
+
+        palloc_free_page(pagedir_get_page(thread_current()->pagedir, vme->vaddr));
+        pagedir_clear_page(thread_current()->pagedir, vme->vaddr);
+        free(vme);
+
         return true;
     }
 
@@ -75,10 +84,11 @@ struct vm_entry *find_vme(void *vaddr){
 void vm_destroy(struct hash *vm){
     
     hash_destroy(vm, vm_action_func);
+    file_close(thread_current()->binary_file);
 }
 
 
-void do_munmap(struct mmap_file * mmfile){
+void do_munmap(struct mmap_file * mmfile, struct list_elem * e){
     
    struct vm_entry *vme;
 
@@ -92,14 +102,12 @@ void do_munmap(struct mmap_file * mmfile){
            }
         }
         delete_vme(&thread_current()->vm, vme);
-        free(vme);
 
    }
 
-   list_remove(&mmfile->elem);
-   file_close(mmfile->file);
-   free(mmfile);
-
+    list_remove(e);
+    file_close(mmfile->file);
+    free(mmfile);
 
 
 }
@@ -107,33 +115,16 @@ void do_munmap(struct mmap_file * mmfile){
 void all_munmap(void){
     
    struct list_elem *e;
+   struct list_elem *next_e;
    struct mmap_file *mmfile;
-   struct list mmap_list = thread_current()->mmap_list;
 
-   for( e = list_begin(&mmap_list); e != list_end(&mmap_list); e = list_next(e)){
-        
-        mmfile= list_entry(e, struct mmap_file, elem);
-        do_munmap(mmfile);
-        
-    }
-   
+   if(!list_empty(&thread_current()->mmap_list)){
+       for( e = list_begin(&thread_current()->mmap_list); e != list_end(&thread_current()->mmap_list); ){
+            
+            next_e = list_next(e);
+            mmfile= list_entry(e, struct mmap_file, elem);
+            do_munmap(mmfile,e);
+            e = next_e;  
+        }
+   }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

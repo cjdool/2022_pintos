@@ -354,8 +354,7 @@ int mmap(int fd, void *addr){
     if( (int)addr % PGSIZE !=0 || addr == 0){
         return -1;
     }
-    //page_addr = pg_round_down(addr);  addr should be page-aligned
-    if((found_vme = check_address(addr))==NULL){
+    if((found_vme = check_address(addr))!=NULL){
         return -1;
     }
 
@@ -364,22 +363,22 @@ int mmap(int fd, void *addr){
     }
 
     file = file_reopen(file);
-    int size = (int)file_length(file);
-    if(size == 0){
+    int read_bytes = (int)file_length(file);
+    if(read_bytes == 0){
         return -1;
     }
     struct mmap_file * mmfile = (struct mmap_file *)malloc(sizeof(struct mmap_file));
     if( mmfile == NULL){
         return -1;
     }
-    mmfile->mapid = thread_current()->mapid;
+    mmfile->mapid = thread_current()->mapid++;
     mmfile->file = file;
     list_init(&mmfile->vme_list);
     list_push_back(&thread_current()->mmap_list, &mmfile->elem);
     
-    while(size >0){
+    while(read_bytes >0){
             
-        size_t page_read_bytes = page_read_bytes < PGSIZE ? page_read_bytes : PGSIZE;
+        size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
         size_t page_zero_bytes = PGSIZE - page_read_bytes;
         
         struct vm_entry * vme = (struct vm_entry*)malloc(sizeof(struct vm_entry));
@@ -395,29 +394,29 @@ int mmap(int fd, void *addr){
         list_push_back(&mmfile->vme_list, &vme->mmap_elem);
         insert_vme(&thread_current()->vm, vme);
         
-        size -= PGSIZE;
         offset += PGSIZE;
-        page_read_bytes -= page_read_bytes;
-        page_zero_bytes -= page_zero_bytes;
-
+        read_bytes -= page_read_bytes;
+        addr += PGSIZE;
     }
-    mapid = thread_current()->mapid++;
-    return mapid;
+    
+    return mmfile->mapid;
 }
 
-void munmap(mapid_t mapid){
+void munmap(int mapid){
    struct list_elem *e;
    struct mmap_file *mmfile;
-   struct list mmap_list = thread_current()->mmap_list;
 
-   for( e = list_begin(&mmap_list); e != list_end(&mmap_list); e = list_next(e)){
-        
-        mmfile= list_entry(e, struct mmap_file, elem);
-        
-        if( mmfile-> mapid == mapid){
-            do_munmap(mmfile);
-            return;
-        }
+
+   if(!list_empty(&thread_current()->mmap_list)){
+       for( e = list_begin(&thread_current()->mmap_list); e != list_end(&thread_current()->mmap_list);e = list_next(e) ){
+            
+            mmfile= list_entry(e, struct mmap_file, elem);
+            
+            if( mmfile-> mapid == mapid){
+                do_munmap(mmfile,e);
+                return;
+            }
+       }
    }
 }
 
@@ -465,12 +464,12 @@ syscall_handler (struct intr_frame *f )
         break;
     case SYS_READ :
         get_argument(sp, arg, 3);
-        check_valid_buffer((void*)arg[1],(unsigned)arg[2],0);
+        check_valid_buffer((void*)arg[1],(unsigned)arg[2],1);
         f->eax = read((int)arg[0], (void *)arg[1], (unsigned)arg[2]);
         break;
     case SYS_WRITE :
         get_argument(sp, arg, 3);
-        check_valid_buffer((void*)arg[1],(unsigned)arg[2],1);
+        check_valid_buffer((void*)arg[1],(unsigned)arg[2],0);
         f->eax = write((int)arg[0], (const void *)arg[1], (unsigned)arg[2]);
         break;
     case SYS_SEEK :
@@ -500,9 +499,11 @@ syscall_handler (struct intr_frame *f )
     /* Project 3 */
     case SYS_MMAP :
         get_argument(sp,arg,2);
-        mmap((int)arg[0],(void*)arg[1]);
+        f->eax = mmap((int)arg[0],(void*)arg[1]);
         break;
     case SYS_MUNMAP :
+        get_argument(sp,arg,1);
+        munmap((int)arg[0]);
         break;
     /* Project 4 */
     case SYS_CHDIR :

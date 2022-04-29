@@ -5,7 +5,7 @@
 struct lock filesys_lock;
 
 typedef int pid_t;
-typedef int mapid_t;
+//typedef int mapid_t;
 
 struct lock filesys_lock;
 
@@ -32,6 +32,6 @@ void sigaction(int signum, void(*handler)(void));
 void sendsig(pid_t pid, int signum);
 void sched_yield(void);
 int mmap(int, void*);
-void munmap(mapid_t);
+void munmap(int);
 
 #endif /* userprog/syscall.h */
