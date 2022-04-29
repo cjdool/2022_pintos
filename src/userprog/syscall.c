@@ -109,7 +109,7 @@ void exit(int status){
 
 pid_t exec(const char *cmd_line){
     pid_t pid;
-    check_address((void*)cmd_line);
+    //check_address((void*)cmd_line);
     pid = process_execute(cmd_line);
     return pid;
 }
@@ -127,11 +127,11 @@ int wait(pid_t pid){
 bool create(const char *file, unsigned initial_size)
 {
     bool retval;
-    if (file == NULL)
+    /*if (file == NULL)
     {
         exit(-1);
     }
-    check_address((void *)file);
+    check_address((void *)file);*/
     lock_acquire(&filesys_lock);
     retval = filesys_create(file, initial_size);
     lock_release(&filesys_lock);
@@ -141,11 +141,11 @@ bool create(const char *file, unsigned initial_size)
 bool remove(const char *file)
 {
     bool retval;
-    if (file == NULL)
+    /*if (file == NULL)
     {
         exit(-1);
     }
-    check_address((void *)file);
+    check_address((void *)file);*/
     lock_acquire(&filesys_lock);
     retval = filesys_remove(file);
     lock_release(&filesys_lock);
@@ -158,11 +158,11 @@ int open(const char *file)
     struct file *retval;
     struct thread *cur = thread_current();
 
-    if (file == NULL)
+    /*if (file == NULL)
     {
         exit(-1);
     }
-    check_address((void *)file);
+    check_address((void *)file);*/
     lock_acquire(&filesys_lock);
     retval = filesys_open(file);
     if (retval != NULL)
@@ -214,7 +214,7 @@ int read(int fd, void *buffer, unsigned size)
     {
         exit(-1);
     }
-    check_address((void *)buffer);
+    //check_address((void *)buffer);
     lock_acquire(&filesys_lock);
     if (fd == 0)
     {
@@ -249,7 +249,7 @@ int write(int fd, const void *buffer, unsigned size)
     {
         exit(-1);
     }
-    check_address((void *)buffer);
+    //check_address((void *)buffer);
     lock_acquire(&filesys_lock);
     if (fd == 1)
     {
@@ -448,14 +448,17 @@ syscall_handler (struct intr_frame *f )
         break;
     case SYS_CREATE :
         get_argument(sp, arg, 2);
+        check_valid_string((const void *)arg[0]);
         f->eax = create((const char *)arg[0], (unsigned)arg[1]);
         break;
     case SYS_REMOVE :
         get_argument(sp, arg, 1);
+        check_valid_string((const char *)arg[0]);
         f->eax = remove((const char *)arg[0]);
         break;
     case SYS_OPEN :
         get_argument(sp, arg, 1);
+        check_valid_string((const void *)arg[0]);
         f->eax = open((const char *)arg[0]);
         break;
     case SYS_FILESIZE :

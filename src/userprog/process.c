@@ -550,6 +550,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       vme->type = VM_BIN;
       vme->vaddr = upage;
       vme->writable = writable;
+      vme->pinned = false;
       vme->is_loaded = false;
       vme->file = vme_file;
       vme->offset = ofs;
@@ -585,6 +586,7 @@ setup_stack (void **esp)
           vme->type = VM_ANON;
           vme->vaddr = ((uint8_t *) PHYS_BASE) - PGSIZE;
           vme->writable = true;
+          vme->pinned = false;
           vme->is_loaded = true;
           vme->file = NULL;
           vme->offset = 0;
@@ -596,7 +598,6 @@ setup_stack (void **esp)
       else
         palloc_free_page (kpage);
     }
-
 
   return success;
 }
