@@ -91,8 +91,23 @@ void check_valid_string(const void *str){
 
 }
 
+void pin_buffer(void *start, int size){
+    void *ptr;
+    for(ptr=start; ptr < start+size; ptr += PGSIZE){
+        struct vm_entry *vme = find_vme(ptr);
+        vme->pinned = true;
+        if(!vme->is_loaded)
+            handle_mm_fault(vme);
+    }
+}
 
-
+void unpin_buffer(void *start, int size){
+    void *ptr;
+    for(ptr=start; ptr < start+size; ptr += PGSIZE){
+        struct vm_entry *vme = find_vme(ptr);
+        vme->pinned = false;
+    }
+}
 
 void halt(void){
     shutdown_power_off();
@@ -216,6 +231,7 @@ int read(int fd, void *buffer, unsigned size)
     }
     //check_address((void *)buffer);
     lock_acquire(&filesys_lock);
+    pin_buffer(buffer, size);
     if (fd == 0)
     {
         for (retval = 0; (unsigned int)retval < size; retval++)
@@ -234,6 +250,7 @@ int read(int fd, void *buffer, unsigned size)
         }
         retval = (int)file_read(curfile, buffer, size);
     }
+    unpin_buffer(buffer, size);
     lock_release(&filesys_lock);
 
     return retval;
@@ -251,6 +268,7 @@ int write(int fd, const void *buffer, unsigned size)
     }
     //check_address((void *)buffer);
     lock_acquire(&filesys_lock);
+    pin_buffer(buffer, size);
     if (fd == 1)
     {
         putbuf(buffer, size);
@@ -270,6 +288,7 @@ int write(int fd, const void *buffer, unsigned size)
         }
         retval = (int)file_write(curfile, buffer, size);
     }
+    unpin_buffer(buffer, size);
     lock_release(&filesys_lock);
 
     return retval;
