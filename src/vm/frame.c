@@ -7,8 +7,6 @@
 #include "vm/swap.h"
 #include "filesys/file.h"
 
-
-
 static struct list_elem* get_next_lru_clock(void);
 
 void lru_list_init(void){
@@ -30,21 +28,11 @@ void del_page_from_lru_list(struct page* page){
     list_remove (&page->lru);
 }
 
-struct page* alloc_page(enum palloc_flags flags){
-    struct page *page;
-    lock_acquire(&lru_list_lock);
-    void *kaddr = palloc_get_page(flags);
-    while (kaddr == NULL)
-    {
-        try_to_free_pages(flags);
-        kaddr = palloc_get_page(flags);
-    }
-    page = (struct page *)malloc(sizeof(struct page));
-    page->kaddr = kaddr;
-    page->thread = thread_current();
-    add_page_to_lru_list(page);
-    lock_release(&lru_list_lock);
-    return page;
+void __free_page(struct page* page){
+    del_page_from_lru_list(page);
+    pagedir_clear_page(page->thread->pagedir, pg_round_down(page->vme->vaddr));
+    palloc_free_page(page->kaddr);
+    free(page);
 }
 
 void try_to_free_pages(enum palloc_flags flags){
@@ -87,11 +75,21 @@ void try_to_free_pages(enum palloc_flags flags){
     __free_page(victim);
 }
 
-void __free_page(struct page* page){
-    del_page_from_lru_list(page);
-    pagedir_clear_page(page->thread->pagedir, pg_round_down(page->vme->vaddr));
-    palloc_free_page(page->kaddr);
-    free(page);
+struct page* alloc_page(enum palloc_flags flags){
+    struct page *page;
+    lock_acquire(&lru_list_lock);
+    void *kaddr = palloc_get_page(flags);
+    while (kaddr == NULL)
+    {
+        try_to_free_pages(flags);
+        kaddr = palloc_get_page(flags);
+    }
+    page = (struct page *)malloc(sizeof(struct page));
+    page->kaddr = kaddr;
+    page->thread = thread_current();
+    add_page_to_lru_list(page);
+    lock_release(&lru_list_lock);
+    return page;
 }
 
 void free_page(void *kaddr){

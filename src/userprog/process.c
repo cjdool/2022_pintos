@@ -607,6 +607,52 @@ setup_stack (void **esp)
   return success;
 }
 
+bool expand_stack(void *addr)
+{
+    struct page *kpage = alloc_page(PAL_USER | PAL_ZERO);
+    struct vm_entry *vme = (struct vm_entry *)malloc(sizeof(struct vm_entry));
+    
+    if (vme == NULL)
+        return false;
+
+    vme->type = VM_ANON;
+    vme->vaddr=pg_round_down(addr);
+    vme->writable = true;
+    vme->pinned = false;
+    vme->is_loaded = true;
+    vme->file = NULL;
+    vme->offset = 0;
+    vme->read_bytes = 0;
+    vme->zero_bytes = 0;
+    insert_vme(&thread_current()->vm, vme);
+    kpage->vme = vme;
+
+    if(!install_page(vme->vaddr, kpage->kaddr, vme->writable))
+    {
+        free_page(kpage->kaddr);
+        free(vme);
+        return false;
+    }
+
+    return true;
+}
+
+bool verify_stack(void *fault_addr, void *esp)
+{
+    void *max_stack = PHYS_BASE-8*1024*1024; // MAXSIZE is 8MB
+
+    if (!is_user_vaddr(pg_round_down(fault_addr)))
+        return false;
+
+    if (fault_addr < max_stack)
+        return false;
+
+    if (fault_addr >= esp - 32) // not expand case
+        return false;
+
+    return true;
+}
+
 /* Adds a mapping from user virtual address UPAGE to kernel
    virtual address KPAGE to the page table.
    If WRITABLE is true, the user process may modify the page;

@@ -176,15 +176,15 @@ page_fault (struct intr_frame *f)
   }
 
   if((vme = find_vme(fault_addr)) == NULL){
-    exit(-1);
+    if (!verify_stack(fault_addr, f->esp))
+        exit(-1);
+    expand_stack(fault_addr);
+    return;
   }
 
   if(!handle_mm_fault(vme)){
     exit(-1);
   }
-  
-
-  
 
 }
 
