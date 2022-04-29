@@ -16,9 +16,7 @@ void lru_list_init(void){
 }
 
 void add_page_to_lru_list(struct page* page){
-    lock_acquire(&lru_list_lock);
     list_push_back(&lru_list, &page->lru);
-    lock_release(&lru_list_lock);
 }
 
 void del_page_from_lru_list(struct page* page){
@@ -77,7 +75,7 @@ void try_to_free_pages(enum palloc_flags flags){
 
 struct page* alloc_page(enum palloc_flags flags){
     struct page *page;
-   // lock_acquire(&lru_list_lock);
+    lock_acquire(&lru_list_lock);
     void *kaddr = palloc_get_page(flags);
     while (kaddr == NULL)
     {
@@ -88,7 +86,7 @@ struct page* alloc_page(enum palloc_flags flags){
     page->kaddr = kaddr;
     page->thread = thread_current();
     add_page_to_lru_list(page);
-   // lock_release(&lru_list_lock);
+    lock_release(&lru_list_lock);
     return page;
 }
 
@@ -122,7 +120,10 @@ static struct list_elem* get_next_lru_clock(void){
         retval = list_begin(&lru_list);
     }
     else if (lru_clock == list_end(&lru_list)){
-        retval = NULL;
+        retval = list_begin(&lru_list);
+    }else if ( list_next(lru_clock) == list_end(&lru_list)){
+        retval = list_begin(&lru_list);
+        
     }
     else{
         retval = list_next(lru_clock);
