@@ -192,16 +192,17 @@ page_fault (struct intr_frame *f)
 bool handle_mm_fault(struct vm_entry *vme){
     struct page* page = alloc_page(PAL_USER);
     uint8_t *kaddr = page->kaddr;
-    page->vme = vme;
     bool success = false;
     uint8_t type = vme->type;
 
     if(kaddr == NULL)
         return false;
+    page->vme = vme;
     if(type == VM_BIN || type == VM_FILE){
         success = load_file(kaddr, vme);
     }else if(type == VM_ANON){
         swap_in(vme->swap_slot, kaddr);
+        vme->is_loaded= true;
         success =true;
     }else{
         return false;
@@ -218,7 +219,7 @@ bool handle_mm_fault(struct vm_entry *vme){
         return false;
     }
 
-    vme->is_loaded = true;
+
     return success;
 }
 

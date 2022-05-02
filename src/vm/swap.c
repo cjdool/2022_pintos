@@ -7,8 +7,7 @@
 
 void swap_init(void){
     struct block *swap_slot = block_get_role(BLOCK_SWAP);
-    //swap_bitmap = bitmap_create(block_size(swap_slot));
-    swap_bitmap = bitmap_create(1024);
+    swap_bitmap = bitmap_create(block_size(swap_slot));
     lock_init(&swap_lock);
 }
 

@@ -41,13 +41,13 @@ void get_argument(void *esp, int *arg, int count){
 
 struct vm_entry * check_address(void *addr, void *esp){
     void* temp_addr = addr;
-    for( int i=0; i<4;i++){
-        temp_addr = temp_addr + i;
-        bool is_kernel = (int)is_kernel_vaddr(temp_addr);
+    //for( int i=0; i<4;i++){
+       // temp_addr = temp_addr + i;
+        bool is_kernel = is_kernel_vaddr(temp_addr);
         if(temp_addr == NULL || is_kernel || temp_addr < (void*)8048000){
            exit(-1);
         } 
-   }
+  // }
     
    struct vm_entry * vme = find_vme(addr);
    if (vme == NULL){
@@ -421,6 +421,7 @@ int mmap(int fd, void *addr){
         vme->writable = true;
         vme->pinned = false;
         vme->is_loaded= false;
+        vme->pinned = false;
         vme->file = file;
         vme->offset = offset;
         vme->read_bytes = page_read_bytes;
