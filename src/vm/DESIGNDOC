@@ -1,21 +1,22 @@
-       	       	    +---------------------------+
-		    |		CS 140		|
+       	    +---------------------------+
+		    |		    CS 140    		|
 		    | PROJECT 3: VIRTUAL MEMORY	|
-		    |	   DESIGN DOCUMENT	|
+		    |	   DESIGN DOCUMENT	    |
 		    +---------------------------+
 
 ---- GROUP ----
 
 >> Fill in the names and email addresses of your group members.
 
-FirstName LastName <email@domain.example>
-FirstName LastName <email@domain.example>
-FirstName LastName <email@domain.example>
+JuHyeon Jang <cjdool@kaist.ac.kr>
+Dongeon Kim  <dongeon97@kaist.ac.kr>
 
 ---- PRELIMINARIES ----
 
 >> If you have any preliminary comments on your submission, notes for the
 >> TAs, or extra credit, please give them here.
+
+    Huge page support
 
 >> Please cite any offline or online sources you consulted while
 >> preparing your submission, other than the Pintos documentation, course
@@ -58,18 +59,42 @@ FirstName LastName <email@domain.example>
 >> `struct' member, global or static variable, `typedef', or
 >> enumeration.  Identify the purpose of each in 25 words or less.
 
+struct bitmap *swap_bitmap; // swap slot이 사용중인 지를 나타내는 비트
+struct lock swap_lock; // swap in과 동시에 out이 되는 상황 방지용 lock
+
 ---- ALGORITHMS ----
 
 >> B2: When a frame is required but none is free, some frame must be
 >> evicted.  Describe your code for choosing a frame to evict.
 
+LRU를 기반으로 페이지를 할당할 때 LRU 리스트에 넣고, free시 LRU 리스트에서 뺀다.
+또한 free page를 찾아야 할 때는 clock 알고리즘을 이용해, 마지막 clock 위치에서 전체 
+LRU 리스트를 accessed flag를 이용해 찾아보고, unaccessed로 설정된 페이지를 eviction한다.
+모든 LRU 리스트를 찾아도 없다면, 가장 먼저 LRU 리스트에 존재하는 페이지를 eviction한다.
+
 >> B3: When a process P obtains a frame that was previously used by a
 >> process Q, how do you adjust the page table (and any other data
 >> structures) to reflect the frame Q no longer has?
 
+Swap에서 해당 경우가 발생할 수 있으며, 다른 프로세스의 frame이 할당되는 경우
+먼저, Q의 프레임이 어떤 종류인지를 파악하고, dirty인지 아닌지 파악한다.
+1. undirty 이고 VM_BIN인 경우, 그냥 페이지를 내보내고 Q가 사용한다. 
+다음 P 프로세스가 접근시 page fault가 발생해서 demand paging으로 디스크에서 load를 한다.
+2. dirty 이고 VM_BIN인 경우, P의 프레임을 swap_out해서 스왑공간에 써둔다.
+다음 P 프로세스가 접근시 page fault가 발생해서 demnad paging으로 해당 정보를 스왑 공간에서 가져온다.
+3. undirty이고 VM_FILE인 경우, 그냥 페이지를 내보내고 Q가 사용한다.
+4. dirty이고 VM_FILE인 경우, P의 프레임을 해당 파일의 위치에 쓴다.
+
+프레임 정보에 thread정보와 가상주소 정보만을 교체해서 사용할 수 있게 한다.
+
 >> B4: Explain your heuristic for deciding whether a page fault for an
 >> invalid virtual address should cause the stack to be extended into
 >> the page that faulted.
+
+먼저 해당 fault 주소가 유저공간인지 확인한다.
+둘째로 최대 스택 공간(PHYS_BASE - 8*1024*1024)에 속하는지 확인한다.
+셋째로 현재 스택 포인터보다 적은 주소(4바이트 적게)를 가지는지 확인한다.
+3가지 조건이 모두 만족되면 확장가능한 stack 공간으로 판단하고 스택을 확장한다.
 
 ---- SYNCHRONIZATION ----
 
@@ -78,21 +103,43 @@ FirstName LastName <email@domain.example>
 >> textbook for an explanation of the necessary conditions for
 >> deadlock.)
 
->> B6: A page fault in process P can cause another process Q's frame
+기본적으로 filesystem lock, swap lock, lru lock을 이용하며, global 변수에 대해서
+접근하는 경우만 lock을 이용했다.
+
+deadlock을 방지하기 위해서, 동시에 2개의 lock을 잡는 경우인 circular wait가
+발생하지 않게 했다.
+
+즉, 1개의 프로세스가 동시에 2개의 락을 잡는 경우는 없다.
+
+B6: A page fault in process P can cause another process Q's frame
 >> to be evicted.  How do you ensure that Q cannot access or modify
 >> the page during the eviction process?  How do you avoid a race
 >> between P evicting Q's frame and Q faulting the page back in?
+
+page fault handle시 먼저 free page를 가져오게 설정한다.
+이때 lru lock을 통해서 free page를 가져오므로, 이때 다른 프로세스가 접근시 다시
+page를 할당하게 되는데, 이미 lru lock이 다른 프로세스가 잡혀 있으므로 해당 프로세스가
+접근 및 수정이 불가능하다.
 
 >> B7: Suppose a page fault in process P causes a page to be read from
 >> the file system or swap.  How do you ensure that a second process Q
 >> cannot interfere by e.g. attempting to evict the frame while it is
 >> still being read in?
 
+vm entry에pinned 변수를 추가해서 file system이 read나 write중에는 해당 
+페이지는 eviction이 clock algorithm 상으로 다음 lru_clock으로 가도록 처리했다.
+따라서 해당 페이지는 eviction 페이지가 될 수 없어서 동기화를 진행했다.
+
 >> B8: Explain how you handle access to paged-out pages that occur
 >> during system calls.  Do you use page faults to bring in pages (as
 >> in user programs), or do you have a mechanism for "locking" frames
 >> into physical memory, or do you use some other design?  How do you
 >> gracefully handle attempted accesses to invalid virtual addresses?
+
+시스템콜 중, 페이지 fault가 발생하면 page fault handler가 해당 인터럽트 프레임을
+가지고 오므로, 유저 영역 공간에 대해서도 처리가 가능하다.
+page fault handler에서는 해당 가상 주소에 대해서 유저 영역에서 vme 탐색을 통해 
+찾으므로 invalid한 가상주소에 대해서는 NULL이 리턴되므로 접근이 불가능하다.
 
 ---- RATIONALE ----
 
@@ -102,6 +149,11 @@ FirstName LastName <email@domain.example>
 >> possibility for deadlock but allows for high parallelism.  Explain
 >> where your design falls along this continuum and why you chose to
 >> design it this way.
+
+현재 pintos는 멀티코어에서 동작하지 않기 때문에, 싱글코어에서 동기화를 
+최대한 진행하고 병렬성을 향상시키기 위해서 최소한의 lock을 사용했다.
+따라서 특정한 공통 데이터 구조에 접근할 때만, lock을 사용하도록 했다.
+global value인 LRU list, swap bitmap에 대해서만 lock을 구현했다.
 
 			 MEMORY MAPPED FILES
 			 ===================
