@@ -53,7 +53,7 @@ bool insert_vme(struct hash *vm, struct vm_entry *vme){
 
 bool delete_vme(struct hash *vm, struct vm_entry *vme){
   
-    if( hash_delete(vm, &vme->elem) == NULL ){
+    if( hash_delete(vm, &vme->elem) != NULL ){
 
         free_page(pagedir_get_page(thread_current()->pagedir, vme->vaddr));
         free(vme);

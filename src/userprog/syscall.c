@@ -41,13 +41,10 @@ void get_argument(void *esp, int *arg, int count){
 
 struct vm_entry * check_address(void *addr, void *esp){
     void* temp_addr = addr;
-    //for( int i=0; i<4;i++){
-       // temp_addr = temp_addr + i;
-        bool is_kernel = is_kernel_vaddr(temp_addr);
-        if(temp_addr == NULL || is_kernel || temp_addr < (void*)8048000){
+    bool is_kernel = is_kernel_vaddr(temp_addr);
+    if(temp_addr == NULL || is_kernel || temp_addr < (void*)0x8048000){
            exit(-1);
-        } 
-  // }
+    }
     
    struct vm_entry * vme = find_vme(addr);
    if (vme == NULL){
@@ -66,7 +63,7 @@ struct vm_entry * check_address2(void *addr){
     for( int i=0; i<4;i++){
         temp_addr = temp_addr + i;
         bool is_kernel = (int)is_kernel_vaddr(temp_addr);
-        if(temp_addr == NULL || is_kernel || temp_addr < (void*)8048000){
+        if(temp_addr == NULL || is_kernel || temp_addr < (void*)0x8048000){
            exit(-1);
         } 
    }
@@ -103,7 +100,7 @@ void check_valid_string(const void *str, void *esp){
         exit(-1);
     }
     while(((char *)str)[tempsize] != '\0')
-        tempsize++;
+        tempsize++; 
     while(tempsize > 0){
         vme = check_address(addr, esp);
         if(vme == NULL){
