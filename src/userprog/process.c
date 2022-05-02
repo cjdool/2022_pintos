@@ -601,7 +601,7 @@ setup_stack (void **esp)
           insert_vme(&thread_current()->vm, vme); 
       }
       else
-        free_page (page);
+        free_page (page->kaddr);
     }
 
   return success;

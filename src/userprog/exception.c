@@ -210,11 +210,11 @@ bool handle_mm_fault(struct vm_entry *vme){
     if(success){
       if (!install_page (vme->vaddr, kaddr, vme->writable)) 
         {
-          free_page (page);
+          free_page (page->kaddr);
           return false; 
         }
     }else{
-        free_page(page);
+        free_page(page->kaddr);
         return false;
     }
 

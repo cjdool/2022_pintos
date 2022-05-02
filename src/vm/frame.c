@@ -28,7 +28,7 @@ void del_page_from_lru_list(struct page* page){
 
 void __free_page(struct page* page){
     del_page_from_lru_list(page);
-    pagedir_clear_page(page->thread->pagedir, page->vme->vaddr);
+    pagedir_clear_page(page->thread->pagedir, pg_round_down(page->vme->vaddr));
     palloc_free_page(page->kaddr);
     free(page);
 }
@@ -122,8 +122,7 @@ static struct list_elem* get_next_lru_clock(void){
     else if (lru_clock == list_end(&lru_list)){
         retval = list_begin(&lru_list);
     }else if ( list_next(lru_clock) == list_end(&lru_list)){
-        retval = list_begin(&lru_list);
-        
+        retval = list_begin(&lru_list); 
     }
     else{
         retval = list_next(lru_clock);

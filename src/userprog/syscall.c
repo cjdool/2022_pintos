@@ -419,6 +419,7 @@ int mmap(int fd, void *addr){
         vme->type = VM_FILE;
         vme->vaddr = addr;
         vme->writable = true;
+        vme->pinned = false;
         vme->is_loaded= false;
         vme->file = file;
         vme->offset = offset;

@@ -33,7 +33,7 @@ void vm_action_func(struct hash_elem *e, void *aux UNUSED){
     
    // palloc_free_page(pagedir_get_page(thread_current()->pagedir, vme->vaddr));
    // pagedir_clear_page(thread_current()->pagedir, vme->vaddr);
-    free_page(vme->vaddr);
+    free_page(pagedir_get_page(thread_current()->pagedir, vme->vaddr));
     free(vme);
 
 }
@@ -45,11 +45,9 @@ void vm_init(struct hash *vm){
 }
 
 bool insert_vme(struct hash *vm, struct vm_entry *vme){
-    
     if( hash_insert(vm, &vme->elem) == NULL){
         return true;
     }
-
     return false;
 }
 
@@ -57,7 +55,7 @@ bool delete_vme(struct hash *vm, struct vm_entry *vme){
   
     if( hash_delete(vm, &vme->elem) == NULL ){
 
-        free_page(vme->vaddr);
+        free_page(pagedir_get_page(thread_current()->pagedir, vme->vaddr));
        // palloc_free_page(pagedir_get_page(thread_current()->pagedir, vme->vaddr));
        // pagedir_clear_page(thread_current()->pagedir, vme->vaddr);
         free(vme);
@@ -103,8 +101,8 @@ void do_munmap(struct mmap_file * mmfile, struct list_elem * e){
                 exit(-1);
            }
         }
+        vme->is_loaded = false;
         delete_vme(&thread_current()->vm, vme);
-
    }
 
     list_remove(e);
