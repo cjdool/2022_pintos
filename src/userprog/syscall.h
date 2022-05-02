@@ -10,9 +10,10 @@ typedef int pid_t;
 struct lock filesys_lock;
 
 void get_argument(void *esp, int *arg, int count);
-struct vm_entry * check_address(void *);
-void check_valid_buffer(void*, unsigned, bool);
-void check_valid_string(const void *);
+struct vm_entry * check_address(void *, void *);
+void check_valid_buffer(void*, unsigned, void*, bool);
+void check_valid_string(const void *i, void *);
+void check_valid_string_length(void*, unsigned, void*);
 
 void syscall_init (void);
 void halt(void);

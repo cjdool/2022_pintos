@@ -14,7 +14,7 @@
 #include "threads/malloc.h"
 
 void get_argument(void *esp, int *arg, int count);
-struct vm_entry * check_address(void *);
+struct vm_entry * check_address(void *, void *);
 static void syscall_handler (struct intr_frame *);
 
 void
@@ -31,7 +31,7 @@ void get_argument(void *esp, int *arg, int count){
         void * sp = esp;
         for(i = 0 ; i<count; i++){
             sp += 4;
-            check_address(sp);
+            check_address(sp, esp);
             arg[i] = *(int *)sp;
         }
     }else {
@@ -39,9 +39,7 @@ void get_argument(void *esp, int *arg, int count){
     }
 }
 
-struct vm_entry * check_address(void *addr){
-    //struct thread * t = thread_current();
-    //uint32_t * pd = t->pagedir;
+struct vm_entry * check_address(void *addr, void *esp){
     void* temp_addr = addr;
     for( int i=0; i<4;i++){
         temp_addr = temp_addr + i;
@@ -49,26 +47,41 @@ struct vm_entry * check_address(void *addr){
         if(temp_addr == NULL || is_kernel || temp_addr < (void*)8048000){
            exit(-1);
         } 
-       /* if( !is_kernel){
-            if(pagedir_get_page(pd,temp_addr) == NULL){
-                exit(-1);
-            }
-        
-        }
-        */
-    }
+   }
     
-   struct vm_entry * vme = find_vme(addr); 
+   struct vm_entry * vme = find_vme(addr);
+   if (vme == NULL){
+       if(!verify_stack(addr, esp)){
+           exit(-1);
+       }
+       expand_stack(addr);
+       vme = find_vme(addr);
+   }
+
    return vme;
 }
 
-void check_valid_buffer(void * buffer, unsigned size, bool to_write){
+struct vm_entry * check_address2(void *addr){
+    void* temp_addr = addr;
+    for( int i=0; i<4;i++){
+        temp_addr = temp_addr + i;
+        bool is_kernel = (int)is_kernel_vaddr(temp_addr);
+        if(temp_addr == NULL || is_kernel || temp_addr < (void*)8048000){
+           exit(-1);
+        } 
+   }
+    
+   struct vm_entry * vme = find_vme(addr);
+   return vme;
+}
+
+void check_valid_buffer(void * buffer, unsigned size, void *esp, bool to_write){
     void* addr = pg_round_down(buffer);
     struct vm_entry * vme;
     int tempsize = (int)size;    
     while( tempsize > 0){
             
-        vme = check_address(addr);
+        vme = check_address(addr, esp);
         
         if(vme == NULL){
             exit(-1);
@@ -82,13 +95,33 @@ void check_valid_buffer(void * buffer, unsigned size, bool to_write){
     }
 }
 
-void check_valid_string(const void *str){
-
-    struct vm_entry *vme = check_address((void*)str);
+void check_valid_string(const void *str, void *esp){
+    void* addr = pg_round_down(str);
+    struct vm_entry *vme = check_address((void*)str, esp);
+    int tempsize = 0;
     if(vme ==NULL){
         exit(-1);
     }
+    while(((char *)str)[tempsize] != '\0')
+        tempsize++;
+    while(tempsize > 0){
+        vme = check_address(addr, esp);
+        if(vme == NULL){
+            exit(-1);
+        }
+        
+        addr += PGSIZE;
+        tempsize -= PGSIZE;
+    }
+}
 
+void check_valid_string_length(void *str, unsigned size, void *esp){
+    int i;
+    for (i = 0; i < size; i++){
+        struct vm_entry *vme = check_address((void *)(str++), esp);
+        if(vme == NULL)
+            exit(-1);
+    }
 }
 
 void pin_buffer(void *start, int size){
@@ -124,7 +157,6 @@ void exit(int status){
 
 pid_t exec(const char *cmd_line){
     pid_t pid;
-    //check_address((void*)cmd_line);
     pid = process_execute(cmd_line);
     return pid;
 }
@@ -142,11 +174,6 @@ int wait(pid_t pid){
 bool create(const char *file, unsigned initial_size)
 {
     bool retval;
-    /*if (file == NULL)
-    {
-        exit(-1);
-    }
-    check_address((void *)file);*/
     lock_acquire(&filesys_lock);
     retval = filesys_create(file, initial_size);
     lock_release(&filesys_lock);
@@ -156,11 +183,6 @@ bool create(const char *file, unsigned initial_size)
 bool remove(const char *file)
 {
     bool retval;
-    /*if (file == NULL)
-    {
-        exit(-1);
-    }
-    check_address((void *)file);*/
     lock_acquire(&filesys_lock);
     retval = filesys_remove(file);
     lock_release(&filesys_lock);
@@ -173,11 +195,6 @@ int open(const char *file)
     struct file *retval;
     struct thread *cur = thread_current();
 
-    /*if (file == NULL)
-    {
-        exit(-1);
-    }
-    check_address((void *)file);*/
     lock_acquire(&filesys_lock);
     retval = filesys_open(file);
     if (retval != NULL)
@@ -229,7 +246,6 @@ int read(int fd, void *buffer, unsigned size)
     {
         exit(-1);
     }
-    //check_address((void *)buffer);
     lock_acquire(&filesys_lock);
     pin_buffer(buffer, size);
     if (fd == 0)
@@ -266,7 +282,6 @@ int write(int fd, const void *buffer, unsigned size)
     {
         exit(-1);
     }
-    //check_address((void *)buffer);
     lock_acquire(&filesys_lock);
     pin_buffer(buffer, size);
     if (fd == 1)
@@ -373,7 +388,7 @@ int mmap(int fd, void *addr){
     if( (int)addr % PGSIZE !=0 || addr == 0){
         return -1;
     }
-    if((found_vme = check_address(addr))!=NULL){
+    if((found_vme = check_address2(addr))!=NULL){
         return -1;
     }
 
@@ -445,7 +460,7 @@ syscall_handler (struct intr_frame *f )
 {
     int arg[3];
     uint32_t *sp =f->esp;
-    check_address((void*)sp);
+    check_address((void*)sp, f->esp);
     uint32_t number = *sp;
   
   switch(number) {
@@ -458,7 +473,7 @@ syscall_handler (struct intr_frame *f )
         break;
     case SYS_EXEC :
         get_argument(sp, arg, 1);
-        check_valid_string((const void *)arg[0]);
+        check_valid_string((const void *)arg[0], f->esp);
         f->eax = exec((const char *)arg[0]);
         break;
     case SYS_WAIT :
@@ -467,17 +482,17 @@ syscall_handler (struct intr_frame *f )
         break;
     case SYS_CREATE :
         get_argument(sp, arg, 2);
-        check_valid_string((const void *)arg[0]);
+        check_valid_string((const void *)arg[0], f->esp);
         f->eax = create((const char *)arg[0], (unsigned)arg[1]);
         break;
     case SYS_REMOVE :
         get_argument(sp, arg, 1);
-        check_valid_string((const char *)arg[0]);
+        check_valid_string((const char *)arg[0], f->esp);
         f->eax = remove((const char *)arg[0]);
         break;
     case SYS_OPEN :
         get_argument(sp, arg, 1);
-        check_valid_string((const void *)arg[0]);
+        check_valid_string((const void *)arg[0], f->esp);
         f->eax = open((const char *)arg[0]);
         break;
     case SYS_FILESIZE :
@@ -486,12 +501,14 @@ syscall_handler (struct intr_frame *f )
         break;
     case SYS_READ :
         get_argument(sp, arg, 3);
-        check_valid_buffer((void*)arg[1],(unsigned)arg[2],1);
+        check_valid_buffer((void*)arg[1],(unsigned)arg[2], f->esp, 1);
+        check_valid_string_length((void*)arg[1],(unsigned)arg[2], f->esp);
         f->eax = read((int)arg[0], (void *)arg[1], (unsigned)arg[2]);
         break;
     case SYS_WRITE :
         get_argument(sp, arg, 3);
-        check_valid_buffer((void*)arg[1],(unsigned)arg[2],0);
+        check_valid_buffer((void*)arg[1],(unsigned)arg[2],f->esp, 0);
+        check_valid_string_length((void*)arg[1],(unsigned)arg[2],f->esp);
         f->eax = write((int)arg[0], (const void *)arg[1], (unsigned)arg[2]);
         break;
     case SYS_SEEK :

@@ -647,7 +647,7 @@ bool verify_stack(void *fault_addr, void *esp)
     if (fault_addr < max_stack)
         return false;
 
-    if (fault_addr < esp - 32) // not expand case
+    if (fault_addr < esp - 32) // bad argument test
         return false;
 
     return true;
