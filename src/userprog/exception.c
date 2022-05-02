@@ -218,6 +218,7 @@ bool handle_mm_fault(struct vm_entry *vme){
         return false;
     }
 
+    vme->is_loaded = true;
     return success;
 }
 

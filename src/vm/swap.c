@@ -23,9 +23,8 @@ void swap_in(size_t used_index, void* kaddr){
         bitmap_reset(swap_bitmap, used_index);
         lock_release(&swap_lock);
     }else{
-        exit(-1);
         lock_release(&swap_lock);
-
+        exit(-1);
     }
 }
 
@@ -41,9 +40,8 @@ size_t swap_out(void* kaddr){
         bitmap_set(swap_bitmap, swap_index, true);
         lock_release(&swap_lock);
     }else{
-        exit(-1);
         lock_release(&swap_lock);
-        
+        exit(-1);
     }
     return swap_index;
 }
