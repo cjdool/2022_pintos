@@ -66,6 +66,7 @@ static inline uintptr_t pd_no (const void *va) {
 #define PTE_U 0x4               /* 1=user/kernel, 0=kernel only. */
 #define PTE_A 0x20              /* 1=accessed, 0=not acccessed. */
 #define PTE_D 0x40              /* 1=dirty, 0=not dirty (PTEs only). */
+#define PTE_PS 0x80             /* 1=huge page, 0=not */
 
 /* Returns a PDE that points to page table PT. */
 static inline uint32_t pde_create (uint32_t *pt) {
