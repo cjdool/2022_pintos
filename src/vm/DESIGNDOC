@@ -30,25 +30,69 @@ Dongeon Kim  <dongeon97@kaist.ac.kr>
 >> A1: Copy here the declaration of each new or changed `struct' or
 >> `struct' member, global or static variable, `typedef', or
 >> enumeration.  Identify the purpose of each in 25 words or less.
+    
+    #define VM_BIN  0
+    #define VM_FILE 1
+    #define VM_ANON 2
+
+    struct vm_entry{
+        uint8_t type;   //type
+        void *vaddr;    //virtual address
+        bool writable;  
+        bool pinned;
+
+        bool is_loaded;
+        struct file* file;  //file for loading
+
+        struct list_elem mmap_elem; // for mmap
+
+        size_t offset; // offset for loading file
+        size_t read_bytes;  // the number of bytes for reading
+        size_t zero_bytes;  // zero padding
+
+        size_t swap_slot;   // for swapping
+    
+        struct hash_elem elem;  // element for hash table
+    };
+
+    struct page {
+        void *kaddr; // page physical address
+        struct vm_entry *vme; // vm_entry pointer for virtual address mapped to the physical page
+        struct thread *thread; // thread using the physical page
+        struct list_elem lru;// LRU list linking field
+    };
 
 ---- ALGORITHMS ----
 
 >> A2: In a few paragraphs, describe your code for locating the frame,
 >> if any, that contains the data of a given page.
 
+    각 페이지마다 virtual address에 해당하는 vm_entry struct를 할당해서 페이지를 관리함
+    Binary file, Memory mapped file, anonymous 타입으로 분류해서 physical frame에 접근할 때
+    필요한 data를 lazy load한다. 
+    
 >> A3: How does your code coordinate accessed and dirty bits between
 >> kernel and user virtual addresses that alias a single frame, or
 >> alternatively how do you avoid the issue?
+
+     user virtual address만 사용하도록 구현했다. 
 
 ---- SYNCHRONIZATION ----
 
 >> A4: When two user processes both need a new frame at the same time,
 >> how are races avoided?
 
+    새로운 frame이 할당될 때 lru_list_lock을 acquire하기 때문에, race condition을 처리할 수 있다.
+
 ---- RATIONALE ----
 
 >> A5: Why did you choose the data structure(s) that you did for
 >> representing virtual-to-physical mappings?
+
+    virtual address : page->vme->vaddr
+    physical address : page->kaddr 
+
+    page마다 vm_entry가 mapping되어있어서 page struct내부에서 mapping을 찾을 수 있음
 
 		       PAGING TO AND FROM DISK
 		       =======================
@@ -164,14 +208,37 @@ global value인 LRU list, swap bitmap에 대해서만 lock을 구현했다.
 >> `struct' member, global or static variable, `typedef', or
 >> enumeration.  Identify the purpose of each in 25 words or less.
 
+    struct thread{
+        ...
+        struct list mmap_list; // list of memory mapped files
+        int mapid;  // ID of memory mapped file
+        ...
+    }
+
+    struct mmap_file{
+        int mapid;     // ID of memory mapped file
+        struct file* file; // pointer to file
+        struct list_elem elem; // list element of thread's mmlist
+        struct list vme_list;  // list of vm entry in mm file
+    };
 ---- ALGORITHMS ----
 
 >> C2: Describe how memory mapped files integrate into your virtual
 >> memory subsystem.  Explain how the page fault and eviction
 >> processes differ between swap pages and other pages.
 
+   mmap(fd, addr) 을 호출하면 fd에 해당하는 파일을 PGSIZE단위로 vm entry를
+   만들어서 mmap_file의 vme_list에 넣어준다. 
+   page fault발생시 address에 해당하는 vm entry를 찾아서 vm entry가 갖고있는
+   정보를 가지고 load한다. page를 evict할 때 dirty인 경우 파일에 write back한 후에
+   page를 free한다.
+
 >> C3: Explain how you determine whether a new file mapping overlaps
 >> any existing segment.
+
+   file을 mmap하는 경우 새로운 vm entry를 만들어서 mapping 하기 때문에
+   기존의 segment와 overlap되는 경우는 없다.
+    
 
 ---- RATIONALE ----
 
@@ -181,6 +248,10 @@ global value인 LRU list, swap bitmap에 대해서만 lock을 구현했다.
 >> that much of their implementation can be shared.  Explain why your
 >> implementation either does or does not share much of the code for
 >> the two situations.
+
+    data demand-paged와 mmap이 type만 다르고 load해오는 부분은 같기 때문에
+    page fault에 대한 handle방법이 비슷하다. evict될 때, mmap은 파일에 writeback
+    해주기 때문에 그 부분을 제외한 대부분이 비슷하다.
 
 			   SURVEY QUESTIONS
 			   ================
