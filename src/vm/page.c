@@ -31,10 +31,14 @@ void vm_action_func(struct hash_elem *e, void *aux UNUSED){
     
     struct vm_entry* vme = hash_entry(e, struct vm_entry, elem);
     
-   // palloc_free_page(pagedir_get_page(thread_current()->pagedir, vme->vaddr));
-   // pagedir_clear_page(thread_current()->pagedir, vme->vaddr);
-    free_page(pagedir_get_page(thread_current()->pagedir, vme->vaddr));
-    free(vme);
+    if(vme->is_huge){
+        free_huge_page(pagedir_get_page(thread_current()->pagedir, vme->vaddr));
+        free(vme);
+    
+    }else{
+        free_page(pagedir_get_page(thread_current()->pagedir, vme->vaddr));
+        free(vme);
+    }
 
 }
 
@@ -54,10 +58,14 @@ bool insert_vme(struct hash *vm, struct vm_entry *vme){
 bool delete_vme(struct hash *vm, struct vm_entry *vme){
   
     if( hash_delete(vm, &vme->elem) != NULL ){
-
-        free_page(pagedir_get_page(thread_current()->pagedir, vme->vaddr));
-        free(vme);
-
+        if(vme->is_huge){
+            free_huge_page(pagedir_get_page(thread_current()->pagedir, vme->vaddr));
+            free(vme);
+        
+        }else{
+            free_page(pagedir_get_page(thread_current()->pagedir, vme->vaddr));
+            free(vme);
+        }
         return true;
     }
 
@@ -73,7 +81,10 @@ struct vm_entry *find_vme(void *vaddr){
     vme.vaddr = pg_round_down(vaddr);
     e = hash_find(&t->vm, &vme.elem);
     if(e == NULL){
-        return NULL;
+        vme.vaddr = hpg_round_down(vaddr);
+        e = hash_find(&t->vm, &vme.elem);
+        if(e == NULL)
+            return NULL;
     }
 
     return  hash_entry(e, struct vm_entry, elem);     

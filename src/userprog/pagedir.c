@@ -118,6 +118,33 @@ lookup_hpage (uint32_t *pd, const void *vaddr, bool create)
 
     return pde;
 }
+bool pagedir_set_huge(uint32_t *pd, void *upage, void *kpage, bool writable){
+
+    uint32_t * pde;
+
+  ASSERT (pg_ofs (upage) == 0);
+  ASSERT (pg_ofs (kpage) == 0);
+  ASSERT (is_user_vaddr (upage));
+  ASSERT (vtop (kpage) >> PTSHIFT < init_ram_pages);
+  ASSERT (pd != init_page_dir);
+
+  pde = pd + pd_no(upage);
+
+  if (pde != NULL) 
+    {
+      ASSERT ((*pde & PTE_PS) == 0);
+      return true;
+    }
+  else
+    return false;
+
+}
+
+bool pagedir_is_huge(uint32_t *pd, const void *vpage) 
+{
+  uint32_t *pde = pd + pd_no(vpage);
+  return pde != NULL && (*pde & PTE_PS) != 0;
+}
 
 /* Adds a mapping in page directory PD from user virtual page
    UPAGE to the physical frame identified by kernel virtual

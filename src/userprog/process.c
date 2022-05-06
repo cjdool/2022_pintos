@@ -563,13 +563,16 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
           vme->offset = ofs;
           vme->read_bytes = hpage_read_bytes;
           vme->zero_bytes = hpage_zero_bytes;
+          vme->is_huge= true;
 
-          insert_vme(&thread_current()->vm, vme);
+          insert_vme(&thread_current()->vm, vme); 
 
           ofs += hpage_read_bytes;
+          /* Advance. */
           read_bytes -= hpage_read_bytes;
           zero_bytes -= hpage_zero_bytes;
           upage += HPGSIZE;
+
       } else {
         /* 4KB Page. */
           vme = (struct vm_entry *)malloc(sizeof(struct vm_entry));
@@ -582,6 +585,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
           vme->offset = ofs;
           vme->read_bytes = page_read_bytes;
           vme->zero_bytes = page_zero_bytes;
+          vme->is_huge= false;
 
           insert_vme(&thread_current()->vm, vme); 
 
@@ -591,6 +595,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
           zero_bytes -= page_zero_bytes;
           upage += PGSIZE;
       }
+
     }
   return true;
 }
@@ -622,6 +627,7 @@ setup_stack (void **esp)
           vme->offset = 0;
           vme->read_bytes = 0;
           vme->zero_bytes = 0;
+          vme->is_huge = false;
 
           insert_vme(&thread_current()->vm, vme); 
       }
@@ -649,6 +655,7 @@ bool expand_stack(void *addr)
     vme->offset = 0;
     vme->read_bytes = 0;
     vme->zero_bytes = 0;
+    vme->is_huge=false;
     insert_vme(&thread_current()->vm, vme);
     kpage->vme = vme;
 

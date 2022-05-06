@@ -113,6 +113,11 @@ palloc_get_page (enum palloc_flags flags)
   return palloc_get_multiple (flags, 1);
 }
 
+void *
+palloc_get_hpage (enum palloc_flags flags) 
+{
+  return palloc_get_multiple (flags, 1024);
+}
 /* Frees the PAGE_CNT pages starting at PAGES. */
 void
 palloc_free_multiple (void *pages, size_t page_cnt) 
@@ -146,6 +151,12 @@ void
 palloc_free_page (void *page) 
 {
   palloc_free_multiple (page, 1);
+}
+
+void
+palloc_free_hpage (void *page) 
+{
+  palloc_free_multiple (page, 1024);
 }
 
 /* Initializes pool P as starting at START and ending at END,

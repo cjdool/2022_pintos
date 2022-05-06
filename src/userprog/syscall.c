@@ -423,6 +423,7 @@ int mmap(int fd, void *addr){
         vme->offset = offset;
         vme->read_bytes = page_read_bytes;
         vme->zero_bytes = page_zero_bytes;
+        vme->is_huge= false;
 
         list_push_back(&mmfile->vme_list, &vme->mmap_elem);
         insert_vme(&thread_current()->vm, vme);

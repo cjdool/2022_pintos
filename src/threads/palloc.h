@@ -13,8 +13,10 @@ enum palloc_flags
 
 void palloc_init (size_t user_page_limit);
 void *palloc_get_page (enum palloc_flags);
+void *palloc_get_hpage (enum palloc_flags);
 void *palloc_get_multiple (enum palloc_flags, size_t page_cnt);
 void palloc_free_page (void *);
+void palloc_free_hpage (void *);
 void palloc_free_multiple (void *, size_t page_cnt);
 
 #endif /* threads/palloc.h */

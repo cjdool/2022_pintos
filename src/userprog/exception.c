@@ -190,11 +190,18 @@ page_fault (struct intr_frame *f)
 }
 
 bool handle_mm_fault(struct vm_entry *vme){
-    struct page* page = alloc_page(PAL_USER);
-    uint8_t *kaddr = page->kaddr;
+    struct page* page ;
+    uint8_t *kaddr ;
     bool success = false;
     uint8_t type = vme->type;
-
+    
+    if(vme->is_huge){
+        page = alloc_huge_page(PAL_USER);
+        kaddr = page->kaddr;
+    }else{
+        page = alloc_page(PAL_USER);
+        kaddr = page->kaddr;
+    }
     if(kaddr == NULL)
         return false;
     page->vme = vme;
@@ -209,13 +216,24 @@ bool handle_mm_fault(struct vm_entry *vme){
     }
 
     if(success){
-      if (!install_page (vme->vaddr, kaddr, vme->writable)) 
-        {
-          free_page (page->kaddr);
-          return false; 
+        if(vme->is_huge){
+          if (!install_hpage (vme->vaddr, kaddr, vme->writable)){
+              free_huge_page (page->kaddr);
+              return false; 
+            }
+
+        }else{
+          if (!install_page (vme->vaddr, kaddr, vme->writable)){
+              free_page (page->kaddr);
+              return false; 
+            }
         }
     }else{
-        free_page(page->kaddr);
+        if(vme->is_huge){
+            free_huge_page(page->kaddr);
+        }else{
+            free_page(page->kaddr);
+        }
         return false;
     }
 

@@ -6,6 +6,7 @@
 #include "userprog/pagedir.h"
 #include "vm/swap.h"
 #include "filesys/file.h"
+#include "threads/palloc.h"
 
 static struct list_elem* get_next_lru_clock(void);
 
@@ -40,9 +41,11 @@ void try_to_free_pages(enum palloc_flags flags){
     /*select victim page*/
     lru_clock = get_next_lru_clock();
     page = list_entry(lru_clock, struct page, lru);
-    while(page->vme->pinned || pagedir_is_accessed(page->thread->pagedir, page->vme->vaddr)){
+    while(page->vme->pinned || page->vme->is_huge || pagedir_is_accessed(page->thread->pagedir, page->vme->vaddr)){
+        
         pagedir_set_accessed(page->thread->pagedir, page->vme->vaddr, false);
         lru_clock = get_next_lru_clock();
+        
         page = list_entry(lru_clock, struct page, lru);
     }
     victim = page;
@@ -71,6 +74,7 @@ void try_to_free_pages(enum palloc_flags flags){
 
     //free page
     __free_page(victim);
+
 }
 
 struct page* alloc_page(enum palloc_flags flags){
@@ -110,6 +114,51 @@ void free_page(void *kaddr){
     lock_release(&lru_list_lock);
 }
 
+struct page* alloc_huge_page(enum palloc_flags flags){
+    struct page *page;
+    lock_acquire(&lru_list_lock);
+    int page_cnt = HPGSIZE/PGSIZE;
+    void *kaddr = palloc_get_hpage(flags);
+    while (kaddr == NULL)
+    {
+        try_to_free_pages(flags);
+        kaddr = palloc_get_hpage(flags);
+    }
+    page = (struct page *)malloc(sizeof(struct page));
+    page->kaddr = kaddr;
+    page->thread = thread_current();
+    add_page_to_lru_list(page);
+    lock_release(&lru_list_lock);
+    return page;
+}
+
+
+void __free_huge_page(struct page* page){
+    del_page_from_lru_list(page);
+    pagedir_clear_hpage(page->thread->pagedir, pg_round_down(page->vme->vaddr));
+    palloc_free_hpage(page->kaddr);
+    free(page);
+}
+
+void free_huge_page(void *kaddr){
+    struct list_elem *e;
+    struct page *page = NULL;
+    struct page *candi_page;
+    lock_acquire(&lru_list_lock);
+    for (e=list_begin(&lru_list); e!=list_end(&lru_list); e=list_next(e))
+    {
+        candi_page = list_entry(e, struct page, lru);
+        if (candi_page->kaddr == kaddr)
+        {
+            page = candi_page;
+            break;
+        }
+    }
+    if (page != NULL)
+        __free_huge_page(page);
+
+    lock_release(&lru_list_lock);
+}
 static struct list_elem* get_next_lru_clock(void){
     struct list_elem *retval;
 
