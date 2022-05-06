@@ -33,17 +33,27 @@ pagedir_destroy (uint32_t *pd)
     return;
 
   ASSERT (pd != init_page_dir);
-  for (pde = pd; pde < pd + pd_no (PHYS_BASE); pde++)
+  for (pde = pd; pde < pd + pd_no (PHYS_BASE); pde++){
     if (*pde & PTE_P) 
-      {
-        uint32_t *pt = pde_get_pt (*pde);
-        uint32_t *pte;
+    {
+        if (*pde & PTE_PS){
+            uint32_t *pte;
+
+            for (pte = pd; pte < pd + PGSIZE / sizeof *pte; pte++)
+                if (*pte & PTE_P)
+                    palloc_free_multiple (hpte_get_page (*pte), HPGSIZE/PGSIZE);
+        }
+        else{
+            uint32_t *pt = pde_get_pt (*pde);
+            uint32_t *pte;
         
-        for (pte = pt; pte < pt + PGSIZE / sizeof *pte; pte++)
-          if (*pte & PTE_P) 
-            palloc_free_page (pte_get_page (*pte));
-        palloc_free_page (pt);
-      }
+            for (pte = pt; pte < pt + PGSIZE / sizeof *pte; pte++)
+                if (*pte & PTE_P) 
+                    palloc_free_page (pte_get_page (*pte));
+            palloc_free_page (pt);
+        }
+    }
+  }
   palloc_free_page (pd);
 }
 
@@ -85,6 +95,30 @@ lookup_page (uint32_t *pd, const void *vaddr, bool create)
   return &pt[pt_no (vaddr)];
 }
 
+/* Returns the address of the huge page table entry (page directory entry) for virtual address VADDR in page directory PD. */
+static uint32_t* 
+lookup_hpage (uint32_t *pd, const void *vaddr, bool create)
+{
+    uint32_t *pde;
+
+    ASSERT (pd != NULL);
+
+    ASSERT (!create || is_user_vaddr (vaddr));
+
+    pde = pd + hpt_no (vaddr);
+    if (*pde == 0)
+    {
+        if (create)
+        {
+            *pde = hpde_create (pd);
+        }
+        else
+            return NULL;
+    }
+
+    return pde;
+}
+
 /* Adds a mapping in page directory PD from user virtual page
    UPAGE to the physical frame identified by kernel virtual
    address KPAGE.
@@ -118,6 +152,30 @@ pagedir_set_page (uint32_t *pd, void *upage, void *kpage, bool writable)
     return false;
 }
 
+/* Adds a huge table mapping in page directory PD from user virtual page UPAGE to the physical frame identified by kernel virtual address KPAGE. */
+bool
+pagedir_set_hpage (uint32_t *pd, void *upage, void *kpage, bool writable)
+{
+    uint32_t *pte;
+
+    ASSERT (hpg_ofs (upage) == 0);
+    ASSERT (hpg_ofs (kpage) == 0);
+    ASSERT (is_user_vaddr (upage));
+    ASSERT (vtop (kpage) >> HPTSHIFT < init_ram_pages);
+    ASSERT (pd != init_page_dir);
+
+    pte = lookup_hpage(pd, upage, true);
+
+    if (pte != NULL)
+    {
+        ASSERT((*pte & PTE_P) == 0);
+        *pte = hpte_create_user (kpage, writable);
+        return true;
+    }
+    else
+        return false;
+}
+
 /* Looks up the physical address that corresponds to user virtual
    address UADDR in PD.  Returns the kernel virtual address
    corresponding to that physical address, or a null pointer if
@@ -134,6 +192,22 @@ pagedir_get_page (uint32_t *pd, const void *uaddr)
     return pte_get_page (*pte) + pg_ofs (uaddr);
   else
     return NULL;
+}
+
+/* Looks up the physical address that corresponds to user virtual
+   address UADDR in PD which supports huge page. */
+void *
+pagedir_get_hpage (uint32_t *pd, const void *uaddr)
+{
+  uint32_t *pte;
+
+  ASSERT (is_user_vaddr (uaddr));
+
+  pte = lookup_hpage (pd, uaddr, false);
+  if (pte != NULL && (*pte & PTE_P) != 0 && (*pte & PTE_PS) != 0)
+      return hpte_get_page (*pte) + hpg_ofs (uaddr); 
+  else
+      return NULL;
 }
 
 /* Marks user virtual page UPAGE "not present" in page
@@ -154,6 +228,23 @@ pagedir_clear_page (uint32_t *pd, void *upage)
       *pte &= ~PTE_P;
       invalidate_pagedir (pd);
     }
+}
+
+/* Marks user virtual page UPAGE "not present" in huge page directory PD. */
+void
+pagedir_clear_hpage (uint32_t *pd, void *upage)
+{
+  uint32_t *pte;
+
+  ASSERT (hpg_ofs (upage) == 0);
+  ASSERT (is_user_vaddr (upage));
+
+  pte = lookup_hpage (pd, upage, false);
+  if (pte != NULL && (*pte & PTE_P) != 0 && (*pte & PTE_PS) != 0)
+  {
+      *pte &= ~PTE_P;
+      invalidate_pagedir (pd);
+  }
 }
 
 /* Returns true if the PTE for virtual page VPAGE in PD is dirty,

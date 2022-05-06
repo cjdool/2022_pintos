@@ -38,6 +38,14 @@ static inline uintptr_t pd_no (const void *va) {
   return (uintptr_t) va >> PDSHIFT;
 }
 
+#define HPTSHIFT HPGBITS
+#define HPTBITS 10
+#define HPTMAST BITMASK(HPTSHIFT, HPTBITS)
+
+static inline unsigned hpt_no (const void *va){
+    return (uintptr_t)va >> HPTSHIFT;
+}
+
 /* Page directory and page table entries.
 
    For more information see the section on page tables in the
@@ -60,6 +68,7 @@ static inline uintptr_t pd_no (const void *va) {
    "not present", which is just fine. */
 #define PTE_FLAGS 0x00000fff    /* Flag bits. */
 #define PTE_ADDR  0xfffff000    /* Address bits. */
+#define HPTE_ADDR 0xffc00000    /* Address bits in huge page */
 #define PTE_AVL   0x00000e00    /* Bits available for OS use. */
 #define PTE_P 0x1               /* 1=present, 0=not present. */
 #define PTE_W 0x2               /* 1=read/write, 0=read-only. */
@@ -72,6 +81,12 @@ static inline uintptr_t pd_no (const void *va) {
 static inline uint32_t pde_create (uint32_t *pt) {
   ASSERT (pg_ofs (pt) == 0);
   return vtop (pt) | PTE_U | PTE_P | PTE_W;
+}
+
+/* Returns a PDE that points to physical frame. */
+static inline uint32_t hpde_create (uint32_t *vaddr){
+  ASSERT (hpg_ofs (vaddr) == 0);
+  return vtop (vaddr) | PTE_U | PTE_P | PTE_W | PTE_PS;
 }
 
 /* Returns a pointer to the page table that page directory entry
@@ -90,6 +105,12 @@ static inline uint32_t pte_create_kernel (void *page, bool writable) {
   return vtop (page) | PTE_P | (writable ? PTE_W : 0);
 }
 
+/* Returns a huge PDE that points to huge PAGE. */
+static inline uint32_t hpte_create_kernel (void *page, bool writable) {
+  ASSERT (hpg_ofs (page) == 0);
+  return vtop (page) | PTE_P | PTE_PS | (writable ? PTE_W : 0);
+}
+
 /* Returns a PTE that points to PAGE.
    The PTE's page is readable.
    If WRITABLE is true then it will be writable as well.
@@ -98,10 +119,21 @@ static inline uint32_t pte_create_user (void *page, bool writable) {
   return pte_create_kernel (page, writable) | PTE_U;
 }
 
+/* Returns a huge PDE that points to huge PAGE. */
+static inline uint32_t hpte_create_user (void *page, bool writable) {
+  return hpte_create_kernel (page, writable) | PTE_U;
+}
+
 /* Returns a pointer to the page that page table entry PTE points
    to. */
 static inline void *pte_get_page (uint32_t pte) {
   return ptov (pte & PTE_ADDR);
+}
+
+/* Returns a pointer to the huge page that page directory entry PDE 
+   points to. */
+static inline void *hpte_get_page (uint32_t pte) {
+  return ptov (pte & HPTE_ADDR);
 }
 
 #endif /* threads/pte.h */

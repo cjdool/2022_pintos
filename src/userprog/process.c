@@ -553,28 +553,44 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       if (read_bytes + zero_bytes >= HPGSIZE && \
          ((uint32_t) pg_round_down(upage) & HPGMASK) == 0) {
         /* Huge Page. */
+          vme = (struct vm_entry *)malloc(sizeof(struct vm_entry));
+          vme->type = VM_BIN;
+          vme->vaddr = upage;
+          vme->writable = writable;
+          vme->pinned = false;
+          vme->is_loaded = false;
+          vme->file = vme_file;
+          vme->offset = ofs;
+          vme->read_bytes = hpage_read_bytes;
+          vme->zero_bytes = hpage_zero_bytes;
+
+          insert_vme(&thread_current()->vm, vme);
+
+          ofs += hpage_read_bytes;
+          read_bytes -= hpage_read_bytes;
+          zero_bytes -= hpage_zero_bytes;
+          upage += HPGSIZE;
       } else {
         /* 4KB Page. */
+          vme = (struct vm_entry *)malloc(sizeof(struct vm_entry));
+          vme->type = VM_BIN;
+          vme->vaddr = upage;
+          vme->writable = writable;
+          vme->pinned = false;
+          vme->is_loaded = false;
+          vme->file = vme_file;
+          vme->offset = ofs;
+          vme->read_bytes = page_read_bytes;
+          vme->zero_bytes = page_zero_bytes;
+
+          insert_vme(&thread_current()->vm, vme); 
+
+          ofs += page_read_bytes;
+          /* Advance. */
+          read_bytes -= page_read_bytes;
+          zero_bytes -= page_zero_bytes;
+          upage += PGSIZE;
       }
-
-      vme = (struct vm_entry *)malloc(sizeof(struct vm_entry));
-      vme->type = VM_BIN;
-      vme->vaddr = upage;
-      vme->writable = writable;
-      vme->pinned = false;
-      vme->is_loaded = false;
-      vme->file = vme_file;
-      vme->offset = ofs;
-      vme->read_bytes = page_read_bytes;
-      vme->zero_bytes = page_zero_bytes;
-
-      insert_vme(&thread_current()->vm, vme); 
-
-      ofs += page_read_bytes;
-      /* Advance. */
-      read_bytes -= page_read_bytes;
-      zero_bytes -= page_zero_bytes;
-      upage += PGSIZE;
     }
   return true;
 }
@@ -680,4 +696,12 @@ install_page (void *upage, void *kpage, bool writable)
      address, then map our page there. */
   return (pagedir_get_page (t->pagedir, upage) == NULL
           && pagedir_set_page (t->pagedir, upage, kpage, writable));
+}
+
+bool install_hpage (void *upage, void *kpage, bool writable)
+{
+    struct thread *t = thread_current ();
+
+    return (pagedir_get_hpage (t->pagedir, upage) == NULL
+            && pagedir_set_hpage(t->pagedir, upage, kpage, writable)); 
 }

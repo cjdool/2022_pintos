@@ -13,5 +13,6 @@ void process_activate (void);
 bool expand_stack(void *addr);
 bool verify_stack(void *fault_addr, void *esp);
 bool install_page (void *upage, void *kpage, bool writable);
+bool install_hpage (void *upage, void *kpage, bool writable);
 
 #endif /* userprog/process.h */

@@ -43,6 +43,27 @@ static inline void *pg_round_up (const void *va) {
 static inline void *pg_round_down (const void *va) {
   return (void *) ((uintptr_t) va & ~PGMASK);
 }
+
+/* Offset witin a huge page. */
+static inline unsigned hpg_ofs (const void *va) {
+    return (uintptr_t) va & HPGMASK;
+}
+
+/* Virtual page number in huge page. */
+static inline uintptr_t hpg_no (const void *va) {
+    return (uintptr_t) va >> HPGBITS;
+}
+
+/* Round up to nearest huge page boundary. */
+static inline void *hpg_round_up (const void *va) {
+    return (void *) (((uintptr_t) va + HPGSIZE - 1) & ~HPGMASK); 
+}
+
+/* Round down to nearest huge page boundary. */
+static inline void *hpg_round_down (const void *va) {
+    return (void *) ((uintptr_t) va & ~HPGMASK);
+}
+
 
 /* Base address of the 1:1 physical-to-virtual mapping.  Physical
    memory is mapped starting at this virtual address.  Thus,
