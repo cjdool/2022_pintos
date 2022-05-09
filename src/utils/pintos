@@ -12,7 +12,7 @@ BEGIN { my $self = $0; $self =~ s%/+[^/]*$%%; require "$self/Pintos.pm"; }
 
 # Command-line options.
 our ($start_time) = time ();
-our ($sim);			# Simulator: bochs, qemu, or player.
+our ($sim) = "qemu";			# Simulator: bochs, qemu, or player.
 our ($debug) = "none";		# Debugger: none, monitor, or gdb.
 our ($mem) = 128;			# Physical RAM in MB.
 our ($serial) = 1;		# Use serial port for input and output?

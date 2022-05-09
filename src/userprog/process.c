@@ -557,7 +557,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
           vme->type = VM_BIN;
           vme->vaddr = upage;
           vme->writable = writable;
-          vme->pinned = false;
+          vme->pinned = true;
           vme->is_loaded = false;
           vme->file = vme_file;
           vme->offset = ofs;

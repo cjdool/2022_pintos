@@ -117,7 +117,7 @@ void free_page(void *kaddr){
 struct page* alloc_huge_page(enum palloc_flags flags){
     struct page *page;
     lock_acquire(&lru_list_lock);
-    int page_cnt = HPGSIZE/PGSIZE;
+//    int page_cnt = HPGSIZE/PGSIZE;
     void *kaddr = palloc_get_hpage(flags);
     while (kaddr == NULL)
     {

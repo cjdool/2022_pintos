@@ -116,7 +116,23 @@ palloc_get_page (enum palloc_flags flags)
 void *
 palloc_get_hpage (enum palloc_flags flags) 
 {
-  return palloc_get_multiple (flags, 1024);
+    int i, page_cnt;
+    void *page;
+    void * aligned_page;
+    void * ret_page;
+    page = palloc_get_page(flags);
+    if((int)page % 0x400000 != 0){
+        aligned_page = hpg_round_up(page);
+        page_cnt = ((int)aligned_page-(int)page)/PGSIZE;
+        palloc_get_multiple(flags,page_cnt-1);
+        ret_page = palloc_get_multiple(flags,1024);
+        palloc_free_multiple(page,page_cnt);
+
+        return ret_page;
+    }else{
+       palloc_get_multiple(flags,1023); 
+    }
+  return page;
 }
 /* Frees the PAGE_CNT pages starting at PAGES. */
 void

@@ -84,11 +84,14 @@ static inline uint32_t pde_create (uint32_t *pt) {
 }
 
 /* Returns a PDE that points to physical frame. */
+/*
 static inline uint32_t hpde_create (uint32_t *vaddr){
-  ASSERT (hpg_ofs (vaddr) == 0);
-  return vtop (vaddr) | PTE_U | PTE_P | PTE_W | PTE_PS;
+  ASSERT (pg_ofs (vaddr) == 0);
+  uint32_t pde =  vtop (vaddr) | PTE_U | PTE_P | PTE_W | PTE_PS;
+  ASSERT(pde & PTE_P);
+  return ptov (pde & HPTE_ADDR);
 }
-
+*/
 /* Returns a pointer to the page table that page directory entry
    PDE, which must "present", points to. */
 static inline uint32_t *pde_get_pt (uint32_t pde) {
@@ -106,9 +109,10 @@ static inline uint32_t pte_create_kernel (void *page, bool writable) {
 }
 
 /* Returns a huge PDE that points to huge PAGE. */
-static inline uint32_t hpte_create_kernel (void *page, bool writable) {
-  ASSERT (hpg_ofs (page) == 0);
-  return vtop (page) | PTE_P | PTE_PS | (writable ? PTE_W : 0);
+static inline uint32_t hpde_create_kernel (void *page, bool writable) {
+  ASSERT (pg_ofs (page) == 0);
+  void * pg_down = hpg_round_down(page);
+  return vtop (pg_down) | PTE_P | PTE_PS | (writable ? PTE_W : 0);
 }
 
 /* Returns a PTE that points to PAGE.
@@ -120,8 +124,8 @@ static inline uint32_t pte_create_user (void *page, bool writable) {
 }
 
 /* Returns a huge PDE that points to huge PAGE. */
-static inline uint32_t hpte_create_user (void *page, bool writable) {
-  return hpte_create_kernel (page, writable) | PTE_U;
+static inline uint32_t hpde_create_user (void *page, bool writable) {
+  return hpde_create_kernel (page, writable) | PTE_U;
 }
 
 /* Returns a pointer to the page that page table entry PTE points
@@ -132,8 +136,8 @@ static inline void *pte_get_page (uint32_t pte) {
 
 /* Returns a pointer to the huge page that page directory entry PDE 
    points to. */
-static inline void *hpte_get_page (uint32_t pte) {
-  return ptov (pte & HPTE_ADDR);
+static inline void *hpde_get_page (uint32_t pde) {
+  return ptov (pde & HPTE_ADDR);
 }
 
 #endif /* threads/pte.h */

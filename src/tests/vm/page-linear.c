@@ -25,9 +25,11 @@ test_main (void)
 
   /* Check that it's all 0x5a. */
   msg ("read pass");
-  for (i = 0; i < SIZE; i++)
-    if (buf[i] != 0x5a)
-      fail ("byte %zu != 0x5a", i);
+  for (i = 0; i < SIZE; i++){
+    if (buf[i] != 0x5a){
+        fail ("byte %zu != 0x5a", i);
+    }
+  }
 
   /* Encrypt zeros. */
   msg ("read/modify/write pass one");

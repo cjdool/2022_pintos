@@ -37,11 +37,7 @@ pagedir_destroy (uint32_t *pd)
     if (*pde & PTE_P) 
     {
         if (*pde & PTE_PS){
-            uint32_t *pte;
-
-            for (pte = pd; pte < pd + PGSIZE / sizeof *pte; pte++)
-                if (*pte & PTE_P)
-                    palloc_free_multiple (hpte_get_page (*pte), HPGSIZE/PGSIZE);
+            palloc_free_multiple(hpde_get_page(*pde),1024);
         }
         else{
             uint32_t *pt = pde_get_pt (*pde);
@@ -110,7 +106,7 @@ lookup_hpage (uint32_t *pd, const void *vaddr, bool create)
     {
         if (create)
         {
-            *pde = hpde_create (pd);
+            return pde;
         }
         else
             return NULL;
@@ -183,20 +179,20 @@ pagedir_set_page (uint32_t *pd, void *upage, void *kpage, bool writable)
 bool
 pagedir_set_hpage (uint32_t *pd, void *upage, void *kpage, bool writable)
 {
-    uint32_t *pte;
+    uint32_t *pde;
 
-    ASSERT (hpg_ofs (upage) == 0);
-    ASSERT (hpg_ofs (kpage) == 0);
+    ASSERT (pg_ofs (upage) == 0);
+    ASSERT (pg_ofs (kpage) == 0);
     ASSERT (is_user_vaddr (upage));
     ASSERT (vtop (kpage) >> HPTSHIFT < init_ram_pages);
     ASSERT (pd != init_page_dir);
 
-    pte = lookup_hpage(pd, upage, true);
+    pde = lookup_hpage(pd, upage, true);
 
-    if (pte != NULL)
+    if (pde != NULL)
     {
-        ASSERT((*pte & PTE_P) == 0);
-        *pte = hpte_create_user (kpage, writable);
+        ASSERT((*pde & PTE_P) == 0);
+        *pde = hpde_create_user (kpage, writable);
         return true;
     }
     else
@@ -226,13 +222,13 @@ pagedir_get_page (uint32_t *pd, const void *uaddr)
 void *
 pagedir_get_hpage (uint32_t *pd, const void *uaddr)
 {
-  uint32_t *pte;
+  uint32_t *pde;
 
   ASSERT (is_user_vaddr (uaddr));
 
-  pte = lookup_hpage (pd, uaddr, false);
-  if (pte != NULL && (*pte & PTE_P) != 0 && (*pte & PTE_PS) != 0)
-      return hpte_get_page (*pte) + hpg_ofs (uaddr); 
+  pde = lookup_hpage (pd, uaddr, false);
+  if (pde != NULL && (*pde & PTE_P) != 0 && (*pde & PTE_PS) != 0)
+      return hpde_get_page (*pde) + hpg_ofs (uaddr); 
   else
       return NULL;
 }
@@ -261,15 +257,16 @@ pagedir_clear_page (uint32_t *pd, void *upage)
 void
 pagedir_clear_hpage (uint32_t *pd, void *upage)
 {
-  uint32_t *pte;
+  uint32_t *pde;
 
-  ASSERT (hpg_ofs (upage) == 0);
+  ASSERT (pg_ofs (upage) == 0);
   ASSERT (is_user_vaddr (upage));
 
-  pte = lookup_hpage (pd, upage, false);
-  if (pte != NULL && (*pte & PTE_P) != 0 && (*pte & PTE_PS) != 0)
+  pde = lookup_hpage (pd, upage, false);
+  if (pde != NULL && (*pde & PTE_P) != 0 && (*pde & PTE_PS) != 0)
   {
-      *pte &= ~PTE_P;
+      *pde &= ~PTE_P;
+      *pde &= ~PTE_PS;
       invalidate_pagedir (pd);
   }
 }

@@ -206,6 +206,8 @@ bool handle_mm_fault(struct vm_entry *vme){
         return false;
     page->vme = vme;
     if(type == VM_BIN || type == VM_FILE){
+        if(vme->is_huge){
+        }
         success = load_file(kaddr, vme);
     }else if(type == VM_ANON){
         swap_in(vme->swap_slot, kaddr);
