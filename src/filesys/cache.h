@@ -8,7 +8,6 @@
 struct lock bc_lock;
 
 struct buffer_cache{
-    struct inode * inode;
     block_sector_t sector;
     bool dirty;
     bool accessed;
@@ -19,8 +18,8 @@ struct buffer_cache{
 
 void bc_init(void);
 void bc_term(void);
-bool bc_read(struct inode *, block_sector_t, void *, off_t, int, int);
-bool bc_write( struct inode *,block_sector_t, const void *, off_t , int, int);
+bool bc_read(block_sector_t, void *, off_t, int, int);
+bool bc_write(block_sector_t, const void *, off_t , int, int);
 struct buffer_cache * bc_lookup(block_sector_t sector);
 void bc_evict(void);
 void bc_flush(struct buffer_cache *flush);

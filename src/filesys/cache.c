@@ -37,7 +37,7 @@ void del_bc_list(struct buffer_cache* bc){
     bc_cnt--;
 }
 
-bool bc_read(struct inode *inode, block_sector_t sector_idx, void *buffer, off_t bytes_read, int chunk_size, int sector_ofs){
+bool bc_read(block_sector_t sector_idx, void *buffer, off_t bytes_read, int chunk_size, int sector_ofs){
     
     struct buffer_cache * bc;
 
@@ -53,7 +53,6 @@ bool bc_read(struct inode *inode, block_sector_t sector_idx, void *buffer, off_t
             return false;
         }
         add_bc_list(bc);
-        bc->inode = inode;
         bc->sector = sector_idx;
         bc->dirty = false;
         bc->accessed = false;
@@ -77,7 +76,7 @@ bool bc_read(struct inode *inode, block_sector_t sector_idx, void *buffer, off_t
 }
 
 
-bool bc_write(struct inode *inode, block_sector_t sector_idx, const void *buffer, off_t bytes_written, int chunk_size, int sector_ofs){
+bool bc_write(block_sector_t sector_idx, const void *buffer, off_t bytes_written, int chunk_size, int sector_ofs){
     
     struct buffer_cache * bc;
 
@@ -93,7 +92,6 @@ bool bc_write(struct inode *inode, block_sector_t sector_idx, const void *buffer
             return false;
         }
         add_bc_list(bc);
-        bc->inode = inode;
         bc->sector = sector_idx;
         bc->dirty = true;
         bc->accessed = false;
