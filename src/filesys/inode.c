@@ -11,7 +11,7 @@
 /* Identifies an inode. */
 #define INODE_MAGIC 0x494e4f44
 /* Number of direct block data pointer (128-4) */
-#define DIRECT_BLOCK_ENTRIES (BLOCK_SECTOR_SIZE / sizeof(uint32_t) - 4)
+#define DIRECT_BLOCK_ENTRIES 124 //(BLOCK_SECTOR_SIZE / sizeof(uint32_t) - 4)
 /* Number of indirect block data pointer (128) */
 #define INDIRECT_BLOCK_ENTRIES (BLOCK_SECTOR_SIZE / sizeof(block_sector_t))
 
@@ -62,7 +62,7 @@ struct inode
 /* Reads inode from buffer cache and return it. */
 static bool get_disk_inode (const struct inode *inode, struct inode_disk *inode_disk)
 {
-    return bc_read(inode->sector, inode_disk, 0, sizeof(inode_disk), 0);
+    return bc_read(inode->sector, inode_disk, 0, sizeof(struct inode_disk), 0);
 }
 
 /* Sets sector location structure. */
@@ -76,16 +76,15 @@ static void locate_byte (off_t pos, struct sector_location *sec_loc)
         sec_loc->index1 = pos_sector;
     }
     /* Indirect index case */
-    else if (pos_sector < (off_t)(DIRECT_BLOCK_ENTRIES + INDIRECT_BLOCK_ENTRIES)){
+    else if ((pos_sector -= DIRECT_BLOCK_ENTRIES) < INDIRECT_BLOCK_ENTRIES){
         sec_loc->directness = INDIRECT;
         sec_loc->index1 = pos_sector;
     }
     /* Double indirect index case */
-    else if (pos_sector < (off_t)(DIRECT_BLOCK_ENTRIES + 
-             INDIRECT_BLOCK_ENTRIES * (INDIRECT_BLOCK_ENTRIES + 1))){
+    else if ((pos_sector -= INDIRECT_BLOCK_ENTRIES) < INDIRECT_BLOCK_ENTRIES * INDIRECT_BLOCK_ENTRIES){
         sec_loc->directness = DOUBLE_INDIRECT;
-        sec_loc->index1 = pos_sector / INDIRECT_BLOCK_ENTRIES;
-        sec_loc->index2 = pos_sector % INDIRECT_BLOCK_ENTRIES;
+        sec_loc->index2 = pos_sector / INDIRECT_BLOCK_ENTRIES;
+        sec_loc->index1 = pos_sector % INDIRECT_BLOCK_ENTRIES;
     }
     else{
         sec_loc->directness = OUT_LIMIT;
@@ -148,7 +147,7 @@ static bool register_sector (struct inode_disk *inode_disk,
                 if (!bc_read(*blk_sec, new_block2, 0, sizeof(struct inode_indirect_block), 0))
                     goto rs_free_phase2;
             }
-            *blk_sec = new_block2->map_table[sec_loc.index2];
+            blk_sec = &new_block2->map_table[sec_loc.index2];
             new_block = (struct inode_indirect_block *)malloc(BLOCK_SECTOR_SIZE);
             if (new_block == NULL)
                 goto rs_free_phase2;
@@ -164,10 +163,8 @@ static bool register_sector (struct inode_disk *inode_disk,
                     goto rs_free_phase1;
             }
             if (new_block->map_table[sec_loc.index1] == (block_sector_t) - 1)
-            {
                 new_block->map_table[sec_loc.index1] = new_sector;
-            }
-            if (!bc_write(inode_disk->double_indirect_block_sec, new_block2, 0, sizeof(struct inode_indirect_block), 0)) // write double indirect table
+            if (new_block2->map_table[sec_loc.index2] == (block_sector_t) - 1 && !bc_write(inode_disk->double_indirect_block_sec, new_block2, 0, sizeof(struct inode_indirect_block), 0)) // write double indirect table
                 goto rs_free_phase1;
             if (!bc_write(*blk_sec, new_block, 0, sizeof(struct inode_indirect_block), 0)) // write indirect table
                 goto rs_free_phase1;
@@ -208,10 +205,10 @@ byte_to_sector (const struct inode_disk *inode_disk, off_t pos)
             case INDIRECT:
                 ind_block = (struct inode_indirect_block *)malloc(BLOCK_SECTOR_SIZE);
                 if (ind_block == NULL)
-                    return -1;
+                    goto bts_return_phase;
                 if (result_sec == (block_sector_t) - 1)
                     goto bts_free_phase;
-                if (!bc_read(result_sec, &ind_block, 0, sizeof(struct inode_indirect_block), 0))
+                if (!bc_read(result_sec, ind_block, 0, sizeof(struct inode_indirect_block), 0))
                     goto bts_free_phase;
                 result_sec = ind_block->map_table[sec_loc.index1];
                 free (ind_block);
@@ -222,12 +219,12 @@ byte_to_sector (const struct inode_disk *inode_disk, off_t pos)
                     goto bts_return_phase;
                 if (inode_disk->double_indirect_block_sec == (block_sector_t) - 1)
                     goto bts_free_phase;
-                if (!bc_read(inode_disk->double_indirect_block_sec, &ind_block, 0, sizeof(struct inode_indirect_block), 0))
+                if (!bc_read(inode_disk->double_indirect_block_sec, ind_block, 0, sizeof(struct inode_indirect_block), 0))
                     goto bts_free_phase;
                 result_sec = ind_block->map_table[sec_loc.index2];
                 if (result_sec == (block_sector_t) - 1)
                     goto bts_free_phase;
-                if (!bc_read(result_sec, &ind_block, 0, sizeof(struct inode_indirect_block), 0))
+                if (!bc_read(result_sec, ind_block, 0, sizeof(struct inode_indirect_block), 0))
                     goto bts_free_phase;
                 result_sec = ind_block->map_table[sec_loc.index1];
                 free (ind_block);
@@ -294,7 +291,32 @@ static bool inode_update_file_length (struct inode_disk *inode_disk, off_t start
     static char zeroes[BLOCK_SECTOR_SIZE];
     struct sector_location sec_loc;
     block_sector_t sector_idx;
-    int size = end_pos - start_pos;
+    
+    if (start_pos == end_pos)
+        return true;
+    if (start_pos > end_pos)
+        return false;
+
+    inode_disk->length = end_pos;
+    end_pos--;
+    start_pos = start_pos / BLOCK_SECTOR_SIZE * BLOCK_SECTOR_SIZE;
+    end_pos = end_pos / BLOCK_SECTOR_SIZE * BLOCK_SECTOR_SIZE;
+
+    for (; start_pos <= end_pos; start_pos += BLOCK_SECTOR_SIZE)
+    {
+        sector_idx = byte_to_sector(inode_disk, start_pos);
+        if (sector_idx == (block_sector_t) - 1){
+            if(!free_map_allocate(1, &sector_idx))
+                return false;
+            locate_byte(start_pos, &sec_loc);
+            if(!register_sector(inode_disk, sector_idx, sec_loc))
+                return false;
+            if(!bc_write(sector_idx, zeroes, 0, BLOCK_SECTOR_SIZE, 0))
+                return false;
+        }
+    }
+
+    /*int size = end_pos - start_pos;
     int offset = start_pos;
 
     if (size == 0)
@@ -316,7 +338,7 @@ static bool inode_update_file_length (struct inode_disk *inode_disk, off_t start
         }
         size -= BLOCK_SECTOR_SIZE;
         offset += BLOCK_SECTOR_SIZE;
-    }
+    }*/
     return true;
 }
 
