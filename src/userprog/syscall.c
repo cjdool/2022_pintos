@@ -12,6 +12,8 @@
 #include "devices/input.h"
 #include "vm/page.h"
 #include "threads/malloc.h"
+#include "filesys/inode.h"
+#include "filesys/directory.h"
 
 void get_argument(void *esp, int *arg, int count);
 struct vm_entry * check_address(void *, void *);
@@ -289,6 +291,10 @@ int write(int fd, const void *buffer, unsigned size)
     else if (fd > 2)
     {
         curfile = cur->fdt[fd];
+        if(inode_is_dir(curfile->inode)){
+            goto done;
+            
+        }
         if (curfile == NULL)
         {
             lock_release(&filesys_lock);
@@ -300,6 +306,8 @@ int write(int fd, const void *buffer, unsigned size)
         }
         retval = (int)file_write(curfile, buffer, size);
     }
+
+done:
     unpin_buffer(buffer, size);
     lock_release(&filesys_lock);
 
@@ -453,6 +461,56 @@ void munmap(int mapid){
    }
 }
 
+bool chdir(const char *dir){
+
+    return filesys_chdir(dir);
+}
+
+bool mkdir(const char *dir){
+
+    return filesys_create_dir(dir);
+}
+
+bool readdir(int fd, char *name){
+
+    bool success = false;
+    if (fd < 2 || fd > FDT_SIZE)
+    {
+        return success;
+    }
+    struct file* file = thread_current()->fdt[fd];
+    if(!inode_is_dir(file->inode)){
+        return success;
+    }
+    struct dir * dir = dir_open(file->inode);
+    success = dir_readdir(dir,name);
+    dir_close(dir);
+
+    return success;
+}
+
+bool isdir(int fd){
+
+    if (fd < 2 || fd > FDT_SIZE)
+    {
+        return -1;
+    }
+    struct file* file = thread_current()->fdt[fd];
+
+    return inode_is_dir(file->inode);
+
+}
+
+int inumber(int fd){
+
+    if (fd < 2 || fd > FDT_SIZE)
+    {
+        return -1;
+    }
+    struct file* file = thread_current()->fdt[fd];
+
+    return (int)inode_get_inumber(file->inode);
+}
 
 static void
 syscall_handler (struct intr_frame *f ) 
@@ -545,14 +603,24 @@ syscall_handler (struct intr_frame *f )
         break;
     /* Project 4 */
     case SYS_CHDIR :
+        get_argument(sp,arg,1);
+        f->eax = chdir((const char*)arg[0]); 
         break;
     case SYS_MKDIR :
+        get_argument(sp,arg,1);
+        f->eax = mkdir((const char*)arg[0]); 
         break;
     case SYS_READDIR :
+        get_argument(sp,arg,2);
+        f->eax = readdir((int)arg[0], (char*)arg[1]); 
         break;
     case SYS_ISDIR :
+        get_argument(sp,arg,1);
+        f->eax = isdir((int)arg[0]); 
         break;
     case SYS_INUMBER :
+        get_argument(sp,arg,1);
+        f->eax = inumber((int)arg[0]); 
         break;
     default :
         exit(-1);

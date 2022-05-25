@@ -16,6 +16,7 @@
 #include "userprog/process.h"
 #include "filesys/file.h"
 #endif
+#include "filesys/directory.h"
 
 /* Random value for struct thread's `magic' member.
    Used to detect stack overflow.  See the big comment at the top
@@ -203,6 +204,9 @@ thread_create (const char *name, int priority,
   t->parent = thread_current();
   list_push_back(&t->parent->child_list, &t->child_elem);
 
+  if( thread_current()->cur_dir != NULL){
+    t->cur_dir = dir_reopen(thread_current()->cur_dir);
+  }
   /* Add to run queue. */
   thread_unblock (t);
 
@@ -312,6 +316,7 @@ thread_exit (void)
         sema_down(&t->exit_sema);
 //    }
 //  }
+  dir_close(thread_current()->cur_dir);
   list_remove (&thread_current()->allelem);
   thread_current ()->status = THREAD_DYING;
   schedule ();
@@ -501,6 +506,7 @@ init_thread (struct thread *t, const char *name, int priority)
 
   list_init(&t->mmap_list);
   t->mapid = 0;
+  t->cur_dir =NULL;
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);

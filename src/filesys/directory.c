@@ -5,6 +5,7 @@
 #include "filesys/filesys.h"
 #include "filesys/inode.h"
 #include "threads/malloc.h"
+#include "threads/thread.h"
 
 /* A directory. */
 struct dir 
@@ -26,7 +27,7 @@ struct dir_entry
 bool
 dir_create (block_sector_t sector, size_t entry_cnt)
 {
-  return inode_create (sector, entry_cnt * sizeof (struct dir_entry));
+  return inode_create (sector, entry_cnt * sizeof (struct dir_entry), 1);
 }
 
 /* Opens and returns the directory for the given INODE, of which
@@ -192,6 +193,7 @@ dir_remove (struct dir *dir, const char *name)
   ASSERT (dir != NULL);
   ASSERT (name != NULL);
 
+  
   /* Find directory entry. */
   if (!lookup (dir, name, &e, &ofs))
     goto done;
@@ -201,6 +203,19 @@ dir_remove (struct dir *dir, const char *name)
   if (inode == NULL)
     goto done;
 
+  if(dir_name_isinit(name))
+      goto done;
+
+  if(inode_is_dir(inode)){
+    if(!dir_is_empty(dir,name)){
+        goto done;
+    }
+  }
+
+  if(thread_current()->cur_dir->inode == inode){
+   // free(thread_current()->cur_dir);
+    thread_current()->cur_dir = NULL;
+  }
   /* Erase directory entry. */
   e.in_use = false;
   if (inode_write_at (dir->inode, &e, sizeof e, ofs) != sizeof e) 
@@ -228,9 +243,53 @@ dir_readdir (struct dir *dir, char name[NAME_MAX + 1])
       dir->pos += sizeof e;
       if (e.in_use)
         {
-          strlcpy (name, e.name, NAME_MAX + 1);
-          return true;
+            if(!dir_name_isinit(e.name)){
+                strlcpy (name, e.name, NAME_MAX + 1);
+                return true;
+            }
         } 
     }
   return false;
+}
+
+bool dir_is_empty(struct dir* dir, const char * name){
+    
+    size_t ofs;
+    struct dir_entry e;
+    struct inode * inode;
+
+    dir_lookup(dir, name, &inode);
+    ASSERT(inode != NULL);
+
+    for (ofs = 0; inode_read_at (inode, &e, sizeof e, ofs) == sizeof e; ofs += sizeof e){
+        if(e.in_use){
+            if( !dir_name_isinit(e.name)){
+                return false;
+            }
+        }
+    }
+
+    return true;
+}
+
+/*
+    parent_dir => ..
+    child_dir  => .
+*/
+
+void dir_init(struct dir* parent_dir, struct dir* child_dir){
+
+    block_sector_t parent_sector = inode_get_inumber(dir_get_inode(parent_dir));
+    block_sector_t child_sector  = inode_get_inumber(dir_get_inode(child_dir));
+
+    dir_add(child_dir, ".", child_sector);
+    dir_add(child_dir, "..", parent_sector);
+
+}
+
+bool dir_name_isinit(const char* name){
+    if(strcmp(name,".") == 0 || strcmp(name,"..") == 0){
+        return true;
+    }
+    return false;
 }

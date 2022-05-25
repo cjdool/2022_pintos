@@ -130,6 +130,10 @@ struct thread
     struct file* binary_file;
     struct list mmap_list;
     int mapid;
+
+
+    struct dir *cur_dir;
+
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
 

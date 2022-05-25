@@ -237,6 +237,8 @@ void bc_free_all(void){
         free(bc);
         e = next_e;
     }
+    bc_cnt = 0;
+    bc_clock = NULL;
 
     lock_release(&bc_lock);
 

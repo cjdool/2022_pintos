@@ -34,5 +34,10 @@ void sendsig(pid_t pid, int signum);
 void sched_yield(void);
 int mmap(int, void*);
 void munmap(int);
+bool chdir(const char *);
+bool mkdir(const char *);
+bool readdir(int, char *);
+bool isdir(int);
+int inumber(int);
 
 #endif /* userprog/syscall.h */
