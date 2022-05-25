@@ -40,8 +40,12 @@ void del_bc_list(struct buffer_cache* bc){
 bool bc_read(block_sector_t sector_idx, void *buffer, off_t bytes_read, int chunk_size, int sector_ofs){
     
     struct buffer_cache * bc;
+    bool lock = false;
 
-    lock_acquire(&bc_lock);
+    if(!lock_held_by_current_thread(&bc_lock)){
+        lock_acquire(&bc_lock);
+        lock = true;
+    }
 
     if( (bc = bc_lookup(sector_idx)) == NULL){ //no sector in buffer cache
         if(bc_isfull()){
@@ -71,7 +75,9 @@ bool bc_read(block_sector_t sector_idx, void *buffer, off_t bytes_read, int chun
         memcpy(buffer+bytes_read, bc->cache+sector_ofs, chunk_size);
     }
 
-    lock_release(&bc_lock);
+    if(lock){
+        lock_release(&bc_lock);
+    }
     return true;
 }
 
