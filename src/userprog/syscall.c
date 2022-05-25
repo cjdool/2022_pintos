@@ -212,7 +212,12 @@ int open(const char *file)
     {
         fd = -1;
     }
-    cur->next_fd++;
+    for(int i = 3; i < FDT_SIZE;i++){
+        if(cur->fdt[i] == NULL){
+            cur->next_fd = i;
+        }
+    }
+   // cur->next_fd++;
     lock_release(&filesys_lock);
 
     return fd;
