@@ -86,12 +86,8 @@ bool bc_write(block_sector_t sector_idx, const void *buffer, off_t bytes_written
     
     struct buffer_cache * bc;
 
-    bool lock = false;
 
-    if(!lock_held_by_current_thread(&bc_lock)){
-        lock_acquire(&bc_lock);
-        lock = true;
-    }
+    lock_acquire(&bc_lock);
 
     if( (bc = bc_lookup(sector_idx)) == NULL){ //no sector in buffer cache
         if(bc_isfull()){
@@ -127,9 +123,7 @@ bool bc_write(block_sector_t sector_idx, const void *buffer, off_t bytes_written
         memcpy(bc->cache+sector_ofs, buffer+bytes_written, chunk_size);
     }
     
-    if(lock){
     lock_release(&bc_lock);
-    }
     return true;
 
 }

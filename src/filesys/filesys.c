@@ -58,7 +58,7 @@ struct dir* parse_path(const char *path_name, char *file_name){
     if(path_name == NULL || file_name == NULL){
         return NULL;
     }
-    if(strlen(path_name) == 0 ){
+    if(strlen(path_name) == 0){
         return NULL;
     }
     char * tmp_name = calloc(1, strlen(path_name)+1);
@@ -74,7 +74,7 @@ struct dir* parse_path(const char *path_name, char *file_name){
     token = strtok_r(tmp_name, "/", &save_ptr);
     next_token = strtok_r(NULL, "/", &save_ptr);
 
-    if(token !=NULL){
+    if(token !=NULL && next_token == NULL){
         if(strlen(token) > NAME_MAX +1){
             dir_close(dir);
             free(free_name);
