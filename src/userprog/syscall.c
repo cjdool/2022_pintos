@@ -212,13 +212,12 @@ int open(const char *file)
     {
         fd = -1;
     }
-    for(int i = 3; i < FDT_SIZE;i++){
+    for(int i = 3; i < FDT_SIZE; i++){
         if(cur->fdt[i] == NULL){
             cur->next_fd = i;
-            break;
+    //        break;
         }
     }
-   // cur->next_fd++;
     lock_release(&filesys_lock);
 
     return fd;
@@ -362,6 +361,12 @@ void close(int fd)
     lock_acquire(&filesys_lock);
     file_close(cur->fdt[fd]);
     cur->fdt[fd] = NULL;
+    for (int i = 3; i < FDT_SIZE; i++){
+        if (cur->fdt[i] == NULL){
+            cur->next_fd = i;
+    //        break;
+        }
+    }
     lock_release(&filesys_lock);
 }
 
