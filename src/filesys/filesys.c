@@ -27,6 +27,7 @@ filesys_init (bool format)
   inode_init ();
   free_map_init ();
   bc_init();
+  dc_init();
 
   if (format) 
     do_format ();
@@ -44,8 +45,32 @@ filesys_done (void)
 {
   free_map_close ();
   bc_term();
+  dc_destroy(&dentry_cache_hash);
 }
 
+
+bool file_isabsolute(const char *name){
+    if( name == NULL || strlen(name) == 0){
+        return false;
+    }
+    if(name[0] == '/'){
+        return true;
+    }
+    return false;
+}
+
+int file_level(const char* name){
+    char* p  = name;
+    int count =0;
+    for( ; *p != '\0'; p++){
+        if(*p == '/'){
+            count++;
+        }
+    }
+    return count;
+}
+
+
 
 struct dir* parse_path(const char *path_name, char *file_name){
     struct dir* dir;
@@ -144,9 +169,30 @@ bool filesys_create_dir (const char *name){
   }
   block_sector_t inode_sector = 0;
   char* dir_name = calloc(1, NAME_MAX +1 );
-  struct dir *dir = parse_path (name, dir_name);
+  struct dir *dir;
   struct dir *child_dir ;
   struct inode *inode;
+
+ /* struct dentry_cache * dc;
+  bool cached = false;
+  if(file_isabsolute(name)){
+      if((dc = dc_find(name)) != NULL){
+            free(dir_name);
+            return false;
+      }else{
+          if(file_level(name) >=2 &&(dc = dc_find2(name,dir_name)) != NULL){
+                dir = dir_open(inode);
+                cached = true;
+          }else{
+                dir = parse_path (name, dir_name);
+          }
+      }
+  }else{
+    dir = parse_path (name, dir_name);
+  }*/
+
+  dir = parse_path (name, dir_name);
+  
   bool success = (dir != NULL
                   && free_map_allocate (1, &inode_sector)
                   && dir_create (inode_sector, 16)
@@ -158,6 +204,17 @@ bool filesys_create_dir (const char *name){
     child_dir = dir_open(inode);
     dir_init(dir, child_dir);
     dir_close(child_dir);
+    
+   /* if(!cached){
+        dc = malloc(sizeof(struct dentry_cache));
+        strlcpy(dc->path, name,strlen(name)+1);
+        dc->inumber = inode_sector;
+        if(!dc_insert(&dentry_cache_hash, dc)){
+            free(dir_name);
+            dir_close(dir);
+            return false;
+        }
+    }*/
   }
 
   free(dir_name);
@@ -180,11 +237,13 @@ filesys_open (const char *name)
 
   if (dir != NULL)
     dir_lookup (dir, file_name, &inode);
+
   dir_close (dir);
   free(file_name);
 
   return file_open (inode);
 }
+ 
 
 /* Deletes the file named NAME.
    Returns true if successful, false on failure.

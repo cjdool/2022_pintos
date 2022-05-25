@@ -250,3 +250,120 @@ void bc_free_all(void){
     lock_release(&bc_lock);
 
 }
+
+static bool dc_less_func(const struct hash_elem *a, const struct hash_elem * b, void* aux UNUSED){
+
+    struct dentry_cache * dc_a = hash_entry(a, struct dentry_cache, elem);
+    struct dentry_cache * dc_b = hash_entry(b, struct dentry_cache, elem);
+    
+    return strcmp(dc_a->path, dc_b->path) < 0 ? true : false;
+}
+
+static unsigned dc_hash_func(const struct hash_elem *e, void* aux UNUSED){
+
+    struct dentry_cache * dc = hash_entry(e, struct dentry_cache, elem);
+    return hash_string((const char*)dc->path);
+
+}
+
+void dc_action_func(struct hash_elem * e, void * aux UNUSED){
+    
+    struct dentry_cache * dc = hash_entry(e, struct dentry_cache, elem);
+    
+    free(dc);
+}
+
+void dc_init(void){
+    lock_init(&dc_lock); 
+    hash_init(&dentry_cache_hash, dc_hash_func, dc_less_func, NULL);
+
+
+
+}
+
+bool dc_insert(struct hash *dc_hash, struct dentry_cache * dc){
+    lock_acquire(&dc_lock); 
+    if(hash_insert(dc_hash, &dc->elem)==NULL){
+        lock_release(&dc_lock);
+        return true;
+    }
+    lock_release(&dc_lock);
+    return false;
+}
+
+bool dc_delete(struct hash* dc_hash, struct dentry_cache *dc){
+    lock_acquire(&dc_lock); 
+    
+    if( hash_delete(dc_hash, &dc->elem) !=NULL){
+        lock_release(&dc_lock);
+        free(dc);
+        return true;
+    
+    }
+    lock_release(&dc_lock);
+    return false;
+}
+
+
+struct dentry_cache * dc_find(const char* path){
+    
+    struct hash_elem *e;
+    struct dentry_cache  *dc;
+    struct dentry_cache  *ret_dc;
+
+    dc =(struct dentry_cache *) malloc(16);
+    //printf("%d, %s\n",strlcpy(dc->path, path, strlen(path)+1), dc->path);
+    strlcpy(dc->path, path, strlen(path)+1);
+    lock_acquire(&dc_lock); 
+    e = hash_find(&dentry_cache_hash,&dc->elem);
+    if( e == NULL){
+        ret_dc = NULL;
+    }else{
+        ret_dc = hash_entry(e, struct dentry_cache, elem);
+    }
+    lock_release(&dc_lock); 
+
+    free(dc);
+    return ret_dc;
+}
+
+struct dentry_cache * dc_find2(const char* path, char* file_name){
+    
+    struct hash_elem *e;
+    char * token;
+
+    struct dentry_cache * dc = malloc(sizeof(struct dentry_cache));
+
+    char * tmp_name = malloc(strlen(path)+1);
+    char * free_name = tmp_name;
+
+    strlcpy(tmp_name, path, strlen(path)+1);
+
+    token = strrchr(tmp_name, '/');
+    strlcpy(file_name, token, strlen(token)+1);
+    
+    *token = '\0';
+    strlcpy(dc->path, tmp_name, strlen(tmp_name)+1);
+
+    lock_acquire(&dc_lock); 
+    e = hash_find(&dentry_cache_hash,&dc->elem);
+    lock_release(&dc_lock); 
+    
+    *token = '/';
+    free(free_name);
+
+    if( e == NULL){
+        free(dc);
+        return NULL;
+    }    
+    free(dc);
+
+    return hash_entry(e, struct dentry_cache, elem);
+}
+
+void dc_destroy(struct hash* dc_hash){
+
+    hash_destroy(dc_hash, dc_action_func);
+
+}
+
