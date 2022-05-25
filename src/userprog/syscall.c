@@ -482,9 +482,9 @@ bool readdir(int fd, char *name){
     if(!inode_is_dir(file->inode)){
         return success;
     }
-    struct dir * dir = dir_open(file->inode);
-    success = dir_readdir(dir,name);
-    dir_close(dir);
+   // struct dir * dir = dir_open(file);
+    success = dir_readdir((struct dir*) file,name);
+    //dir_close(dir);
 
     return success;
 }
@@ -604,14 +604,17 @@ syscall_handler (struct intr_frame *f )
     /* Project 4 */
     case SYS_CHDIR :
         get_argument(sp,arg,1);
+        check_valid_string((const void *)arg[0], f->esp);
         f->eax = chdir((const char*)arg[0]); 
         break;
     case SYS_MKDIR :
         get_argument(sp,arg,1);
+        check_valid_string((const void *)arg[0], f->esp);
         f->eax = mkdir((const char*)arg[0]); 
         break;
     case SYS_READDIR :
         get_argument(sp,arg,2);
+        check_valid_string((const void *)arg[1], f->esp);
         f->eax = readdir((int)arg[0], (char*)arg[1]); 
         break;
     case SYS_ISDIR :
