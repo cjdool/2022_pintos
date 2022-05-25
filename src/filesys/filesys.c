@@ -58,7 +58,7 @@ struct dir* parse_path(const char *path_name, char *file_name){
     if(path_name == NULL || file_name == NULL){
         return NULL;
     }
-    if(strlen(path_name) == 0 || strlen(path_name) > NAME_MAX + 1){
+    if(strlen(path_name) == 0 ){
         return NULL;
     }
     char * tmp_name = calloc(1, strlen(path_name)+1);
@@ -73,8 +73,20 @@ struct dir* parse_path(const char *path_name, char *file_name){
     }
     token = strtok_r(tmp_name, "/", &save_ptr);
     next_token = strtok_r(NULL, "/", &save_ptr);
-    
+
+    if(token !=NULL){
+        if(strlen(token) > NAME_MAX +1){
+            dir_close(dir);
+            free(free_name);
+            return NULL;
+        }
+    }
     while(token != NULL && next_token != NULL){
+        if(strlen(token) >NAME_MAX+1 || strlen(next_token) > NAME_MAX +1){
+            dir_close(dir);
+            free(free_name);
+            return NULL;
+        }
         if(!dir_lookup(dir,token,&inode)){
             dir_close(dir);
             free(free_name);
@@ -90,6 +102,7 @@ struct dir* parse_path(const char *path_name, char *file_name){
         strlcpy(token, next_token, strlen(next_token)+1);
         next_token = strtok_r(NULL, "/", &save_ptr);
     }
+
 
     if( token == NULL ) {
         strlcpy(file_name, ".", 2);

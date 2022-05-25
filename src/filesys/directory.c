@@ -245,7 +245,7 @@ dir_readdir (struct dir *dir, char name[NAME_MAX + 1])
       if (e.in_use)
         {
             if(!dir_name_isinit(e.name)){
-                strlcpy (name, e.name, READDIR_MAX_LEN + 1);
+                strlcpy (name, e.name, strlen(e.name) + 1);
                 return true;
             }
         } 
