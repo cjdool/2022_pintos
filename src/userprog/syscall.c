@@ -215,7 +215,7 @@ int open(const char *file)
     for(int i = 3; i < FDT_SIZE; i++){
         if(cur->fdt[i] == NULL){
             cur->next_fd = i;
-    //        break;
+            break;
         }
     }
     lock_release(&filesys_lock);
@@ -361,12 +361,6 @@ void close(int fd)
     lock_acquire(&filesys_lock);
     file_close(cur->fdt[fd]);
     cur->fdt[fd] = NULL;
-    for (int i = 3; i < FDT_SIZE; i++){
-        if (cur->fdt[i] == NULL){
-            cur->next_fd = i;
-    //        break;
-        }
-    }
     lock_release(&filesys_lock);
 }
 
