@@ -155,6 +155,10 @@ Dongeon Kim <dongeon97@kaist.ac.kr>
 >> B2: Describe your code for traversing a user-specified path.  How
 >> do traversals of absolute and relative paths differ?
 
+    path가 absolute인지 relative인지 확인
+    absolute -> root diretory open, relative -> current thread's directory open
+    '/' 를 기준으로 나눠서 file 전까지 directory open, file name 저장
+    
 ---- SYNCHRONIZATION ----
 
 >> B4: How do you prevent races on directory entries?  For example,
@@ -162,15 +166,25 @@ Dongeon Kim <dongeon97@kaist.ac.kr>
 >> should succeed, as should only one of two simultaneous attempts to
 >> create a file with the same name, and so on.
 
+  directory나 file의 정보를 inode에 기록할 때, lock을 잡기 때문에
+  같은 파일에 접근하는 건 하나의 thread 만 성공할 수 있다.
+
 >> B5: Does your implementation allow a directory to be removed if it
 >> is open by a process or if it is in use as a process's current
 >> working directory?  If so, what happens to that process's future
 >> file system operations?  If not, how do you prevent it?
 
+    current working directory가 삭제되는 경우, directory 안에 다른 파일이 없을 때만
+    삭제 가능함. 그래서 영향을 주지 않는다 
+    
+
 ---- RATIONALE ----
 
 >> B6: Explain why you chose to represent the current directory of a
 >> process the way you did.
+ 
+    thread가 생성될 때 parent process의 directory를 그대로 가져오기 때문에
+    thread_create() 함수에서  parent process의 current directory로 설정해줄 수 있다.
 
 			     BUFFER CACHE
 			     ============
@@ -181,14 +195,31 @@ Dongeon Kim <dongeon97@kaist.ac.kr>
 >> `struct' member, global or static variable, `typedef', or
 >> enumeration.  Identify the purpose of each in 25 words or less.
 
+    struct lock bc_lock; //lock for buffer cache
+
+    struct buffer_cache{
+        block_sector_t sector;  // inode sector
+        bool dirty;             // is dirty 
+        bool accessed;          // is accessed
+        void* cache;            // data cache for inode sector
+        struct list_elem elem;  // buffer cache list element
+    };
+
+
 ---- ALGORITHMS ----
 
 >> C2: Describe how your cache replacement algorithm chooses a cache
 >> block to evict.
 
+    struct buffer cache의 accessed를 사용하여 clock algorithm을 사용함
+
 >> C3: Describe your implementation of write-behind.
 
+    buffer cache가 flush될 때 dirty를 사용하여 dirty인 경우 disk로 flush해줌
+
 >> C4: Describe your implementation of read-ahead.
+
+    block_read가 불리는 곳에 bc_read를 사용하여 cache에 저장한다.
 
 ---- SYNCHRONIZATION ----
 
@@ -196,14 +227,22 @@ Dongeon Kim <dongeon97@kaist.ac.kr>
 >> buffer cache block, how are other processes prevented from evicting
 >> that block?
 
+    buffer cache lock인 bc_lock을 reading, writing 중에 잡기 때문에 
+    race condition이 발생하지 않음
+
 >> C6: During the eviction of a block from the cache, how are other
 >> processes prevented from attempting to access the block?
+
+   flush할 때 lock을 잡기 때문에, race condition이 발생하지 않음     
 
 ---- RATIONALE ----
 
 >> C7: Describe a file workload likely to benefit from buffer caching,
 >> and workloads likely to benefit from read-ahead and write-behind.
 
+    buffer-cache : cache size 보다 작은 for loop, while loop
+    read-ahead , write-behind :  array search, 같은 주소에 여러번 write 하는 경우
+    
 			   SURVEY QUESTIONS
 			   ================
 

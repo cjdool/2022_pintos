@@ -48,6 +48,7 @@ filesys_done (void)
 
 
 struct dir* parse_path(const char *path_name, char *file_name){
+    
     struct dir* dir;
     char *token, *next_token, *save_ptr;
     struct inode *inode;
