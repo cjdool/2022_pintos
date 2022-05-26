@@ -20,5 +20,7 @@ bool filesys_remove (const char *name);
 struct dir* parse_path(const char*, char*);
 bool filesys_create_dir(const char *);
 bool filesys_chdir(const char *);
+bool file_isabsolute(const char *);
+int file_level(const char*);
 
 #endif /* filesys/filesys.h */
