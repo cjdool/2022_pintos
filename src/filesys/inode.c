@@ -10,7 +10,7 @@
 
 /* Identifies an inode. */
 #define INODE_MAGIC 0x494e4f44
-/* Number of direct block data pointer (128-4) */
+/* Number of direct block data pointer (128-5) */
 #define DIRECT_BLOCK_ENTRIES 123 //(BLOCK_SECTOR_SIZE / sizeof(uint32_t) - 4)
 /* Number of indirect block data pointer (128) */
 #define INDIRECT_BLOCK_ENTRIES (BLOCK_SECTOR_SIZE / sizeof(block_sector_t))
@@ -26,9 +26,9 @@ enum direct_t {
 /* How to access a block address and save offset in index block. */
 struct sector_location
 {
-    int directness;
-    uint32_t index1;
-    uint32_t index2;
+    int directness;     /* Index for direct_t */ 
+    uint32_t index1;    /* First index */
+    uint32_t index2;    /* Second index for double indirect case */
 };
 
 /* index block. */
@@ -42,7 +42,7 @@ struct inode_indirect_block
 struct inode_disk
 {
     off_t length;                                          /* File size in bytes */
-    uint32_t is_dir;
+    uint32_t is_dir;                                       /* True for directory, false for file */
     unsigned magic;                                        /* Magic number */
     block_sector_t direct_map_table[DIRECT_BLOCK_ENTRIES]; /* Direct block data pointer */
     block_sector_t indirect_block_sec;                     /* Indirect block data pointer */
@@ -621,6 +621,7 @@ inode_length (const struct inode *inode)
   return inode_disk.length;
 }
 
+/* Returns whether the inode is a directory or a file. */
 bool inode_is_dir (const struct inode *inode){
 
   struct inode_disk inode_disk;

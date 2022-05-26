@@ -8,14 +8,15 @@
 
 >> Fill in the names and email addresses of your group members.
 
-FirstName LastName <email@domain.example>
-FirstName LastName <email@domain.example>
-FirstName LastName <email@domain.example>
+JuHyeon Jang <cjdool@kaist.ac.kr>
+Dongeon Kim <dongeon97@kaist.ac.kr>
 
 ---- PRELIMINARIES ----
 
 >> If you have any preliminary comments on your submission, notes for the
 >> TAs, or extra credit, please give them here.
+
+   Directory Entry Cache (Dentry Cache)
 
 >> Please cite any offline or online sources you consulted while
 >> preparing your submission, other than the Pintos documentation, course
@@ -30,13 +31,71 @@ FirstName LastName <email@domain.example>
 >> `struct' member, global or static variable, `typedef', or
 >> enumeration.  Identify the purpose of each in 25 words or less.
 
+    #define DIRECT_BLOCK_ENTRIES 123 // Number of direct block data pointer
+    #define INDIRECT_BLOCK_ENTRIES (BLOCK_SECTOR_SIZE / sizeof(block_sector_t)) // Number of indirect block data pointer
+    
+    enum direct_t { // How to point disk block number
+        NORMAL_DIRECT,
+        INDIRECT,
+        DOUBLE_INDIRECT,
+        OUT_LIMIT
+    };
+
+    struct sector_location // How to access a block address and save offset in index block
+    {
+        int directness; // index for direct_t
+        uint32_t index1; // first index
+        uint32_t index2; // second index for double indirect case
+    }
+
+    struct inode_indirect_block // index block
+    {
+        block_sector_t map_table[INDIRECT_BLOCK_ENTRIES];
+    }
+
+    struct inode_disk // On-disk inode
+    {
+        off_t length;                                          // File size in bytes
+        uint32_t is_dir;                                       // True for directory, false for file
+        unsigned magic;                                        // Magic number 
+        block_sector_t direct_map_table[DIRECT_BLOCK_ENTRIES]; // Direct block data pointer
+        block_sector_t indirect_block_sec;                     // Indirect block data pointer
+        block_sector_t double_indirect_block_sec;              // Double indirect block data pointer
+    }
+
+    struct inode // In-memory inode
+    {
+        struct list_elem elem;   // Element in inode list
+        block_sector_t sector;   // Sector number of disk location
+        int open_cnt;            // Number of openers
+        bool removed;            // True if deleted, false otherwise
+        int deny_write_cnt;      // 0: writes ok, >0: deny writes
+        struct lock extend_lock; // Semaphore lock for extension
+    }
+
 >> A2: What is the maximum size of a file supported by your inode
 >> structure?  Show your work.
+
+    Level 0: 123 sectors * 512 bytes per sector = 62976 bytes
+    Level 1: 1 indirect block * 128 sectors * 512 bytes per sector = 65536 bytes
+    Level 2: 1 double indirect block * 128 indirect block * 128 sectors * 512 bytes per sector
+             = 8388608 bytes
+
+    Total: 8,517,120 bytes
 
 ---- SYNCHRONIZATION ----
 
 >> A3: Explain how your code avoids a race if two processes attempt to
 >> extend a file at the same time.
+
+   file extend 하는 함수는 총 2부분에서 호출 될 수 있다.
+   먼저, inode_create로 inode를 생성하는 부분이다.
+   둘째로는 inode_write_at로 inode에 특정한 데이터를 쓰는 부분이다.
+
+   따라서 2개의 프로세스간의 race가 발생한다면 3가지 경우가 있을 수 있다.
+   1) inode_create가 2개에서 동시에 발생 : disk_inode가 calloc에서 다른 곳에 할당 되므로 불가능
+   2) inode_create와 inode_write_at이 동시에 발생: inode_create가 완료되지 않으면 inode_write_at이 해당 부분으로 호출되는 것이 불가능
+   3) inode_create가 2개에서 동시에 발생: inode 구조체 안에 extend lock을 사용하여 race 방지
 
 >> A4: Suppose processes A and B both have file F open, both
 >> positioned at end-of-file.  If A reads and B writes F at the same
@@ -45,12 +104,21 @@ FirstName LastName <email@domain.example>
 >> nonzero data, A is not allowed to see all zeros.  Explain how your
 >> code avoids this race.
 
+   각 프로세스는 열린 파일을 file descriptor table로 관리하고, 각 file descriptor table은
+   file 구조체의 포인터를 지니고 있다. file 구조체는 inode 구조체 포인터를 지니고 있는데 
+   inode 구조체는 read, write를 atomic하게 실행하기 위해서 extend_lock을 가지고 있다.
+   해당 lock을 통해서 특정한 inode에 대해서 동시에 읽거나 쓰는 작업은 불가능 하다.
+
 >> A5: Explain how your synchronization design provides "fairness".
 >> File access is "fair" if readers cannot indefinitely block writers
 >> or vice versa.  That is, many processes reading from a file cannot
 >> prevent forever another process from writing the file, and many
 >> processes writing to a file cannot prevent another process forever
 >> from reading the file.
+
+    Read lock을 사용하지는 않기 때문에, read작업과 write작업이 동등하게 취급된다.
+    따라서 모든 결정은 스케줄러에 의해서 결정되며, 이는 random하지만 최종적으로는 
+    read와 write간의 fairness를 보장한다.
 
 ---- RATIONALE ----
 
@@ -59,6 +127,19 @@ FirstName LastName <email@domain.example>
 >> indirect blocks?  If not, why did you choose an alternative inode
 >> structure, and what advantages and disadvantages does your
 >> structure have, compared to a multilevel index?
+    
+    multilevel index 사용함
+
+    direct block          : 123개 
+    indirect block        : 1개
+    double indirect block : 1개
+
+    indirect block이나 double indirect block의 갯수를 1개, 1개로 한 이유는
+    direct 보다 접근속도가 느린 것은 큰 파일을 지원해야 할 때만 쓸모가 있다고
+    생각했기 때문이다.
+
+    테스트 과정에서 파일의 크기 때문에는 문제가 발생하지 않았으므로 1개, 1개는
+    적절했다고 볼 수 있다.
 
 			    SUBDIRECTORIES
 			    ==============
