@@ -508,11 +508,12 @@ inode_read_at (struct inode *inode, void *buffer_, off_t size, off_t offset)
   {
       /* Disk sector to read, starting byte offset within sector. */
       block_sector_t sector_idx = byte_to_sector (&inode_disk, offset);
+      off_t inode_length = inode_disk.length;
       lock_release(&inode->extend_lock);
       int sector_ofs = offset % BLOCK_SECTOR_SIZE;
 
       /* Bytes left in inode, bytes left in sector, lesser of the two. */
-      off_t inode_left = inode_disk.length - offset;
+      off_t inode_left = inode_length - offset;
       int sector_left = BLOCK_SECTOR_SIZE - sector_ofs;
       int min_left = inode_left < sector_left ? inode_left : sector_left;
 
@@ -563,11 +564,12 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
   {
       /* Sector to write, starting byte offset within sector. */
       block_sector_t sector_idx = byte_to_sector (&inode_disk, offset);
+      off_t inode_length = inode_disk.length;
       lock_release(&inode->extend_lock);
       int sector_ofs = offset % BLOCK_SECTOR_SIZE;
 
       /* Bytes left in inode, bytes left in sector, lesser of the two. */
-      off_t inode_left = inode_disk.length - offset;
+      off_t inode_left = inode_length - offset;
       int sector_left = BLOCK_SECTOR_SIZE - sector_ofs;
       int min_left = inode_left < sector_left ? inode_left : sector_left;
 
