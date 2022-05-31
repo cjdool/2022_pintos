@@ -44,7 +44,8 @@ bool bc_is_dirty(struct buffer_cache *);
 
 void dc_action_func(struct hash_elem * e, void * aux );
 void dc_init(void);
-bool dc_insert(struct hash *dc_hash, struct dentry_cache * dc);
+bool dc_insert(const char*, block_sector_t);
+//bool dc_insert(struct hash *dc_hash, struct dentry_cache * dc);
 bool dc_delete(struct hash* dc_hash, struct dentry_cache *dc);
 struct dentry_cache * dc_find(const char* path);
 struct dentry_cache * dc_find2(const char* path, char*);

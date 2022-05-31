@@ -27,7 +27,6 @@ filesys_init (bool format)
   inode_init ();
   free_map_init ();
   bc_init();
-  dc_init();
 
   if (format) 
     do_format ();
@@ -36,6 +35,7 @@ filesys_init (bool format)
   struct dir * root = dir_open_root();
   thread_current()->cur_dir = root;
   dir_init(root, root);
+  dc_init();
 }
 
 /* Shuts down the file system module, writing any unwritten data
@@ -174,7 +174,8 @@ bool filesys_create_dir (const char *name){
   struct dir *child_dir ;
   struct inode *inode;
 
- /* struct dentry_cache * dc;
+  struct dentry_cache * dc;
+  struct dentry_cache * new_dc;
   bool cached = false;
   if(file_isabsolute(name)){
       if((dc = dc_find(name)) != NULL){
@@ -182,7 +183,7 @@ bool filesys_create_dir (const char *name){
             return false;
       }else{
           if(file_level(name) >=2 &&(dc = dc_find2(name,dir_name)) != NULL){
-                dir = dir_open(inode);
+                dir = dir_open(inode_open(dc->inumber));
                 cached = true;
           }else{
                 dir = parse_path (name, dir_name);
@@ -190,9 +191,9 @@ bool filesys_create_dir (const char *name){
       }
   }else{
     dir = parse_path (name, dir_name);
-  }*/
+  }
 
-  dir = parse_path (name, dir_name);
+ // dir = parse_path (name, dir_name);
   
   bool success = (dir != NULL
                   && free_map_allocate (1, &inode_sector)
@@ -206,16 +207,11 @@ bool filesys_create_dir (const char *name){
     dir_init(dir, child_dir);
     dir_close(child_dir);
     
-   /* if(!cached){
-        dc = malloc(sizeof(struct dentry_cache));
-        strlcpy(dc->path, name,strlen(name)+1);
-        dc->inumber = inode_sector;
-        if(!dc_insert(&dentry_cache_hash, dc)){
-            free(dir_name);
-            dir_close(dir);
-            return false;
+    if(file_isabsolute(name)){
+        if(!dc_insert(name,inode_sector)){
+            success = false;
         }
-    }*/
+    }
   }
 
   free(dir_name);

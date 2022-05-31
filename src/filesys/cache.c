@@ -4,6 +4,7 @@
 #include "filesys/free-map.h"
 #include "threads/malloc.h"
 #include "lib/kernel/list.h"
+#include "lib/kernel/hash.h"
 #include "lib/string.h"
 
 #define BUFFER_CACHE_MAX 64
@@ -280,42 +281,56 @@ void dc_init(void){
 
 
 }
+bool dc_insert(const char *name, block_sector_t inumber){
+    bool success = false;
 
-bool dc_insert(struct hash *dc_hash, struct dentry_cache * dc){
+    struct dentry_cache * dc = malloc(sizeof(struct dentry_cache));
+    strlcpy(dc->path, name, strlen(name)+1);
+    dc->inumber = inumber;
+
+    printf("dc->path : %s\n",dc->path);
     lock_acquire(&dc_lock); 
-    if(hash_insert(dc_hash, &dc->elem)==NULL){
-        lock_release(&dc_lock);
-        return true;
+    if(hash_insert(&dentry_cache_hash, &dc->elem)==NULL){
+        success = true;
     }
     lock_release(&dc_lock);
-    return false;
+    return success;
 }
 
+/*bool dc_insert(struct hash *dc_hash, struct dentry_cache * dc){
+    bool success = false;
+    printf("dc->path : %s\n",dc->path);
+    lock_acquire(&dc_lock); 
+    if(hash_insert(dc_hash, &dc->elem)==NULL){
+        success = true;
+    }
+    lock_release(&dc_lock);
+    return success;
+}*/
+
 bool dc_delete(struct hash* dc_hash, struct dentry_cache *dc){
+    bool success = false;
     lock_acquire(&dc_lock); 
     
     if( hash_delete(dc_hash, &dc->elem) !=NULL){
-        lock_release(&dc_lock);
+        success= true;
         free(dc);
-        return true;
     
     }
     lock_release(&dc_lock);
-    return false;
+    return success;
 }
 
 
 struct dentry_cache * dc_find(const char* path){
     
     struct hash_elem *e;
-    struct dentry_cache  *dc;
+    struct dentry_cache  dc;
     struct dentry_cache  *ret_dc;
 
-    dc =(struct dentry_cache *) malloc(16);
-    //printf("%d, %s\n",strlcpy(dc->path, path, strlen(path)+1), dc->path);
-    strlcpy(dc->path, path, strlen(path)+1);
+    dc.path = path;
     lock_acquire(&dc_lock); 
-    e = hash_find(&dentry_cache_hash,&dc->elem);
+    e = hash_find(&dentry_cache_hash,&dc.elem);
     if( e == NULL){
         ret_dc = NULL;
     }else{
@@ -323,7 +338,6 @@ struct dentry_cache * dc_find(const char* path){
     }
     lock_release(&dc_lock); 
 
-    free(dc);
     return ret_dc;
 }
 
@@ -331,34 +345,26 @@ struct dentry_cache * dc_find2(const char* path, char* file_name){
     
     struct hash_elem *e;
     char * token;
-
-    struct dentry_cache * dc = malloc(sizeof(struct dentry_cache));
+    struct dentry_cache dc;
 
     char * tmp_name = malloc(strlen(path)+1);
-    char * free_name = tmp_name;
+    //char * free_name = tmp_name;
 
     strlcpy(tmp_name, path, strlen(path)+1);
 
     token = strrchr(tmp_name, '/');
-    strlcpy(file_name, token, strlen(token)+1);
     
     *token = '\0';
-    strlcpy(dc->path, tmp_name, strlen(tmp_name)+1);
+    dc.path = tmp_name;
 
-    lock_acquire(&dc_lock); 
-    e = hash_find(&dentry_cache_hash,&dc->elem);
-    lock_release(&dc_lock); 
-    
+    struct dentry_cache * ret_dc = dc_find(dc.path);
     *token = '/';
-    free(free_name);
-
-    if( e == NULL){
-        free(dc);
-        return NULL;
-    }    
-    free(dc);
-
-    return hash_entry(e, struct dentry_cache, elem);
+    if(ret_dc != NULL){
+        strlcpy(file_name, token+1, strlen(token));
+    }
+    
+    free(tmp_name);
+    return ret_dc;
 }
 
 void dc_destroy(struct hash* dc_hash){
