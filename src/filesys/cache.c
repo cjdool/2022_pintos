@@ -271,6 +271,7 @@ void dc_action_func(struct hash_elem * e, void * aux UNUSED){
     
     struct dentry_cache * dc = hash_entry(e, struct dentry_cache, elem);
     
+    free(dc->path);
     free(dc);
 }
 
@@ -285,10 +286,11 @@ bool dc_insert(const char *name, block_sector_t inumber){
     bool success = false;
 
     struct dentry_cache * dc = malloc(sizeof(struct dentry_cache));
+    dc->path =(char*) malloc(strlen(name)+1);
     strlcpy(dc->path, name, strlen(name)+1);
     dc->inumber = inumber;
 
-    printf("dc->path : %s\n",dc->path);
+    //printf("dc->path : %s\n",dc->path);
     lock_acquire(&dc_lock); 
     if(hash_insert(&dentry_cache_hash, &dc->elem)==NULL){
         success = true;
@@ -314,6 +316,7 @@ bool dc_delete(struct hash* dc_hash, struct dentry_cache *dc){
     
     if( hash_delete(dc_hash, &dc->elem) !=NULL){
         success= true;
+        free(dc->path);
         free(dc);
     
     }

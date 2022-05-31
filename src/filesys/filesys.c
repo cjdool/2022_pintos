@@ -175,8 +175,8 @@ bool filesys_create_dir (const char *name){
   struct inode *inode;
 
   struct dentry_cache * dc;
-  struct dentry_cache * new_dc;
   bool cached = false;
+
   if(file_isabsolute(name)){
       if((dc = dc_find(name)) != NULL){
             free(dir_name);
@@ -192,8 +192,6 @@ bool filesys_create_dir (const char *name){
   }else{
     dir = parse_path (name, dir_name);
   }
-
- // dir = parse_path (name, dir_name);
   
   bool success = (dir != NULL
                   && free_map_allocate (1, &inode_sector)
@@ -228,13 +226,43 @@ bool filesys_create_dir (const char *name){
 struct file *
 filesys_open (const char *name)
 {
-  char* file_name = calloc(1, NAME_MAX +1);
-  struct dir *dir = parse_path (name, file_name);
+
+  if(strcmp(name, "")==0){
+    return NULL;
+  }
+  char* file_name = calloc(1, NAME_MAX +1 );
+  struct dir *dir;
   struct inode *inode = NULL;
 
-  if (dir != NULL)
-    dir_lookup (dir, file_name, &inode);
+  struct dentry_cache * dc;
 
+  if(file_isabsolute(name)){
+      if((dc = dc_find(name)) != NULL){
+            free(file_name);
+            return file_open(inode_open(dc->inumber));
+      }else{
+          if(file_level(name) >=2 &&(dc = dc_find2(name,file_name)) != NULL){
+                dir = dir_open(inode_open(dc->inumber));
+          }else{
+                dir = parse_path (name, file_name);
+          }
+      }
+  }else{
+    dir = parse_path (name, file_name);
+  }
+
+  if (dir != NULL){
+    dir_lookup (dir, file_name, &inode);
+  
+      if(file_isabsolute(name)){
+          if(!dc_insert(name,inode_get_inumber(inode))){
+            dir_close (dir);
+            free(file_name);
+            return NULL;
+
+          }
+      }
+  }
   dir_close (dir);
   free(file_name);
 
@@ -249,10 +277,35 @@ filesys_open (const char *name)
 bool
 filesys_remove (const char *name) 
 {
-  char * file_name = calloc(1, NAME_MAX +1 );
-  struct dir *dir = parse_path (name, file_name);
+  char* file_name = calloc(1, NAME_MAX +1 );
+  struct dir *dir;
+  struct dentry_cache * dc;
+  struct dentry_cache * parent_dc;
+  bool cached = false;
+
+  if(file_isabsolute(name)){
+      if((dc = dc_find(name)) != NULL){
+          cached = true;
+          if(file_level(name) >=2 &&(parent_dc = dc_find2(name,file_name)) != NULL){
+                dir = dir_open(inode_open(parent_dc->inumber));
+          }else {
+            dir = parse_path (name, file_name);
+          }
+      }else{
+        dir = parse_path (name, file_name);   
+      }
+  }else{
+    dir = parse_path (name, file_name);
+  }
+ // char * file_name = calloc(1, NAME_MAX +1 );
+ // struct dir *dir = parse_path (name, file_name);
   bool success = dir != NULL && dir_remove (dir, file_name);
   
+  if(success && cached){
+    if(!dc_delete(&dentry_cache_hash,dc)){
+        success = false;
+    }
+  }
   free(file_name);
   dir_close (dir); 
 
