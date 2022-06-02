@@ -329,29 +329,6 @@ static bool inode_update_file_length (struct inode_disk *inode_disk, off_t start
         }
     }
 
-    /*int size = end_pos - start_pos;
-    int offset = start_pos;
-
-    if (size == 0)
-        return true;
-    if (size < 0)
-        return false;
-
-    inode_disk->length = end_pos;
-    while(size > 0){
-        sector_idx = byte_to_sector(inode_disk, offset);
-        if(sector_idx == (block_sector_t) -1){ // not already allocated case 
-            if(!free_map_allocate(1, &sector_idx))
-                return false;
-            locate_byte(offset, &sec_loc);
-            if (!register_sector (inode_disk, sector_idx, sec_loc))
-                return false; 
-            if(!bc_write(sector_idx, zeroes, 0, BLOCK_SECTOR_SIZE, 0))
-                return false;
-        }
-        size -= BLOCK_SECTOR_SIZE;
-        offset += BLOCK_SECTOR_SIZE;
-    }*/
     return true;
 }
 
@@ -524,7 +501,10 @@ inode_read_at (struct inode *inode, void *buffer_, off_t size, off_t offset)
         break;
       }
 
-      bc_read(sector_idx, buffer, bytes_read, chunk_size, sector_ofs);
+      if(!bc_read(sector_idx, buffer, bytes_read, chunk_size, sector_ofs)){
+        lock_acquire(&inode->extend_lock); // exit trick
+        break;
+      }
       
       /* Advance. */
       size -= chunk_size;
@@ -580,7 +560,10 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
           break;
       }
 
-      bc_write(sector_idx, buffer, bytes_written, chunk_size, sector_ofs);
+      if(!bc_write(sector_idx, buffer, bytes_written, chunk_size, sector_ofs)){
+        lock_acquire(&inode->extend_lock); // exit trick
+        break;
+      }
 
       /* Advance. */
       size -= chunk_size;

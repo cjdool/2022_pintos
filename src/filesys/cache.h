@@ -14,6 +14,7 @@ struct buffer_cache{
     block_sector_t sector;
     bool dirty;
     bool accessed;
+    bool pinned;
     void* cache;
     struct list_elem elem;
 };

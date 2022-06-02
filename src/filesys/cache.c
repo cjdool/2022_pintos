@@ -61,6 +61,7 @@ bool bc_read(block_sector_t sector_idx, void *buffer, off_t bytes_read, int chun
         bc->sector = sector_idx;
         bc->dirty = false;
         bc->accessed = false;
+        bc->pinned =true;
 
         bc->cache = malloc(BLOCK_SECTOR_SIZE);
         if( bc->cache == NULL){
@@ -76,6 +77,7 @@ bool bc_read(block_sector_t sector_idx, void *buffer, off_t bytes_read, int chun
         memcpy(buffer+bytes_read, bc->cache+sector_ofs, chunk_size);
     }
 
+    bc->pinned = false;
     if(lock){
         lock_release(&bc_lock);
     }
@@ -103,6 +105,7 @@ bool bc_write(block_sector_t sector_idx, const void *buffer, off_t bytes_written
         bc->sector = sector_idx;
         bc->dirty = true;
         bc->accessed = false;
+        bc->pinned = true;
 
         bc->cache = malloc(BLOCK_SECTOR_SIZE);
         if( bc->cache == NULL){
@@ -123,6 +126,7 @@ bool bc_write(block_sector_t sector_idx, const void *buffer, off_t bytes_written
         bc->accessed = true;
         memcpy(bc->cache+sector_ofs, buffer+bytes_written, chunk_size);
     }
+    bc->pinned = false;
     
     lock_release(&bc_lock);
     return true;
@@ -189,7 +193,7 @@ void  bc_evict(void){
     bc_clock = get_next_bc_clock();
     bc = list_entry(bc_clock, struct buffer_cache, elem); 
 
-    while(bc_is_accessed(bc)){
+    while(bc->pinned || bc_is_accessed(bc)){
         bc_set_accessed(bc, false);
         bc_clock = get_next_bc_clock();
         bc = list_entry(bc_clock, struct buffer_cache, elem); 
