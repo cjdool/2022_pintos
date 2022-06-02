@@ -16,7 +16,8 @@ Dongeon Kim <dongeon97@kaist.ac.kr>
 >> If you have any preliminary comments on your submission, notes for the
 >> TAs, or extra credit, please give them here.
 
-   Directory Entry Cache (Dentry Cache)
+   1. Directory Entry Cache (Dentry Cache) 구현
+   2. Filesystem을 project 3에서 구현
 
 >> Please cite any offline or online sources you consulted while
 >> preparing your submission, other than the Pintos documentation, course
